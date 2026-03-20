@@ -256,11 +256,26 @@ This implementation exposes:
 
 ## Quick Start
 
-### 👨‍💻 Want to See the Developer Experience? (Most Popular)
+### 👨‍💻 Want to Try This Yourself? (⭐ Recommended)
 
-**[📖 Day in the Life](docs/DAY_IN_THE_LIFE.md)** - Complete walkthrough: code → PR → production (20 min read)
+**[📖 Tutorial Walkthrough](docs/TUTORIAL_WALKTHROUGH.md)** - Executable tutorial (1-2 hours)
 
-Follow Sarah (a backend developer) as she:
+**Actually add a feature to the code and experience the pipeline:**
+- Add a PUT endpoint with validation (real code!)
+- Write and run tests locally (real tests!)
+- Check policies with Conftest (real validation!)
+- Simulate the full CI/CD pipeline
+- See what 17 security gates look like in practice
+
+**This tutorial uses the actual code in this repo. You can execute every command.**
+
+---
+
+### 📖 Want to Understand the Full Journey? (Most Popular)
+
+**[📖 Day in the Life](docs/DAY_IN_THE_LIFE.md)** - Complete narrative walkthrough (20 min read)
+
+Follow Sarah (a backend developer) through a full deployment:
 - Makes a code change and creates a PR
 - Navigates 9 security scans and policy checks
 - Gets code reviewed and merged
@@ -272,18 +287,19 @@ Follow Sarah (a backend developer) as she:
 
 ---
 
-### 🚀 Want to Actually Use This? (Hands-On)
+### 🚀 Want to Set Up the Full Environment? (Advanced)
 
-**[📖 Getting Started Guide](docs/GETTING_STARTED.md)** - Step-by-step hands-on tutorial (2-4 hours)
+**[📖 Getting Started Guide](docs/GETTING_STARTED.md)** - Complete environment setup (2-4 hours)
 
-Experience the complexity firsthand by:
-- Setting up local Kubernetes
+Experience the full operational complexity by:
+- Setting up local Kubernetes cluster
+- Installing all 10+ required tools
 - Testing policy enforcement
 - Building and scanning containers
-- Deploying services locally
+- Deploying services locally with Argo Rollouts
 - Experiencing what breaks and why
 
-**This is the fastest way to understand the operational burden.**
+**This is the deepest dive into the operational burden.**
 
 ---
 
@@ -291,13 +307,15 @@ Experience the complexity firsthand by:
 
 Start with the **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)**, then:
 
-1. **[Day in the Life](docs/DAY_IN_THE_LIFE.md)** - ⭐ Complete developer workflow: code → PR → production (with all security gates)
-2. **[Architecture](docs/ARCHITECTURE.md)** - System design and integration points
-3. **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** - What breaks, TCO, day-to-day reality
-4. **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** - Missing features vs dedicated platforms
-5. **[Tool Inventory](docs/TOOL_INVENTORY.md)** - All 24 tools, costs, maintenance
-6. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment config at scale
-7. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer onboarding process
+1. **[Tutorial Walkthrough](docs/TUTORIAL_WALKTHROUGH.md)** - 🎯 Executable hands-on tutorial
+2. **[Day in the Life](docs/DAY_IN_THE_LIFE.md)** - ⭐ Complete developer workflow narrative
+3. **[Architecture](docs/ARCHITECTURE.md)** - System design and integration points
+4. **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** - What breaks, TCO, day-to-day reality
+5. **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** - Missing features vs dedicated platforms
+6. **[Tool Inventory](docs/TOOL_INVENTORY.md)** - All 24 tools, costs, maintenance
+7. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment config at scale
+8. **[Getting Started](docs/GETTING_STARTED.md)** - Full environment setup
+9. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer onboarding process
 
 ---
 

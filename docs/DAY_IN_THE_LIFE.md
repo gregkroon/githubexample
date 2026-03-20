@@ -8,6 +8,23 @@ This guide demonstrates the **full end-to-end developer experience** with all se
 
 ---
 
+## 🚀 Want to Actually Do This?
+
+**[📖 TUTORIAL_WALKTHROUGH.md](TUTORIAL_WALKTHROUGH.md)** - Executable step-by-step guide
+
+Follow the tutorial to:
+- Actually add the PUT endpoint to the code
+- Run real tests locally
+- Test real policy validation
+- Experience what it's like to make this change
+
+**This document** provides the narrative walkthrough with all details.
+**The tutorial** lets you execute it yourself.
+
+---
+
+---
+
 ## Persona: Sarah - Backend Developer
 
 **Background**:
