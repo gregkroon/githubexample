@@ -182,14 +182,20 @@ githubexperiment/
    - GitHub vs Harness capabilities confirmed
    - Cost analysis validation
 
+7. **[GitHub Workarounds](docs/GITHUB_WORKAROUNDS.md)** - 🔧 How to solve each gap
+   - Exact solutions for every deployment governance requirement
+   - Custom Deployment Protection Rules with code examples
+   - Build time and ongoing cost for each workaround
+   - Updated TCO: $5.8M (with workarounds) vs $3.9M (Harness)
+
 ### 🛠️ Implementation Guides
 
-7. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment governance
+8. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment governance
    - Configuration at scale
    - Approval workflows
    - Secret management challenges
 
-8. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer guide
+9. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer guide
    - Step-by-step service onboarding
    - Troubleshooting
    - Best practices
