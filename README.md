@@ -256,12 +256,40 @@ This implementation exposes:
 
 ## Quick Start
 
-### Explore the Implementation
+### 🚀 Want to Actually Use This? (Hands-On)
+
+**[📖 Getting Started Guide](docs/GETTING_STARTED.md)** - Step-by-step hands-on tutorial (2-4 hours)
+
+Experience the complexity firsthand by:
+- Setting up local Kubernetes
+- Testing policy enforcement
+- Building and scanning containers
+- Deploying services locally
+- Experiencing what breaks and why
+
+**This is the fastest way to understand the operational burden.**
+
+---
+
+### 📚 Want to Learn About It? (Read First)
+
+Start with the **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)**, then:
+
+1. **[Architecture](docs/ARCHITECTURE.md)** - System design and integration points
+2. **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** - What breaks, TCO, day-to-day reality
+3. **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** - Missing features vs dedicated platforms
+4. **[Tool Inventory](docs/TOOL_INVENTORY.md)** - All 24 tools, costs, maintenance
+5. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment config at scale
+6. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer onboarding process
+
+---
+
+### 🔍 Want to Explore the Code?
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourorg/githubexperiment.git
-cd githubexperiment
+git clone https://github.com/gregkroon/githubexample.git
+cd githubexample
 
 # Explore sample services
 ls services/
@@ -275,10 +303,6 @@ ls platform/policies/
 # Review progressive delivery config
 cat gitops/apps/prod/user-service/rollout.yaml
 ```
-
-### Read the Documentation
-
-Start with the **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)**, then dive into specific areas based on your interests.
 
 ---
 
