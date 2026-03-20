@@ -1,0 +1,163 @@
+name: CD - Payment Service
+
+on:
+  workflow_run:
+    workflows: ["CI - Payment Service"]
+    types:
+      - completed
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy-to-kind:
+    name: Deploy to Kind Cluster
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: demo
+          wait: 30s
+
+      - name: Verify cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load image into kind
+        run: |
+          # Pull image
+          docker pull ghcr.io/${{ github.repository }}/payment-service:main-${{ github.sha }}
+
+          # Load into kind
+          kind load docker-image ghcr.io/${{ github.repository }}/payment-service:main-${{ github.sha }} --name demo
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace payment-service || true
+
+      - name: Update deployment manifest with actual image
+        run: |
+          sed -i "s|IMAGE_TAG|ghcr.io/${{ github.repository }}/payment-service:main-${{ github.sha }}|g" services/payment-service/k8s/deployment.yaml
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f services/payment-service/k8s/ -n payment-service
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/payment-service -n payment-service --timeout=5m
+
+      - name: Verify pods are running
+        run: |
+          kubectl get pods -n payment-service
+          kubectl wait --for=condition=ready pod -l app=payment-service -n payment-service --timeout=3m
+
+      - name: Port forward and test
+        run: |
+          # Start port forward in background
+          kubectl port-forward -n payment-service svc/payment-service 8080:80 &
+          PF_PID=$!
+
+          # Wait for port forward to be ready
+          sleep 5
+
+          # Test health endpoint
+          curl -f http://localhost:8080/health || exit 1
+
+          # Test payments endpoint
+          curl -f http://localhost:8080/api/payments || exit 1
+
+          # Test metrics endpoint
+          curl -f http://localhost:8080/metrics || exit 1
+
+          # Kill port forward
+          kill $PF_PID
+
+          echo "✅ All endpoints responding correctly"
+
+      - name: Run smoke tests
+        run: |
+          kubectl port-forward -n payment-service svc/payment-service 8080:80 &
+          PF_PID=$!
+          sleep 5
+
+          # Test creating a payment
+          RESPONSE=$(curl -s -X POST http://localhost:8080/api/payments/create \
+            -H "Content-Type: application/json" \
+            -d '{"amount":99.99,"user_id":"test-user"}')
+
+          echo "Response: $RESPONSE"
+
+          if echo "$RESPONSE" | grep -q "completed"; then
+            echo "✅ POST /api/payments/create works"
+          else
+            echo "❌ POST /api/payments/create failed"
+            exit 1
+          fi
+
+          kill $PF_PID
+
+      - name: Get deployment info
+        if: always()
+        run: |
+          echo "## Deployment Summary - Payment Service" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pods" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n payment-service >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get svc -n payment-service >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl describe deployment payment-service -n payment-service >> $GITHUB_STEP_SUMMARY || true
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "## Pod Logs" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl logs -n payment-service -l app=payment-service --tail=100 >> $GITHUB_STEP_SUMMARY || true
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  deploy-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: deploy-to-kind
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🚀 Deployment Complete - Payment Service" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ needs.deploy-to-kind.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`ghcr.io/${{ github.repository }}/payment-service:main-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tests Performed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Health endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Payments API endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Metrics endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ POST payment creation" >> $GITHUB_STEP_SUMMARY

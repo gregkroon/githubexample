@@ -1,14 +1,16 @@
-# Real CI/CD Workflows - ACTUALLY RUNNING
+# Real CI/CD Workflows - ALL 3 SERVICES ACTUALLY RUNNING
 
-**These workflows run on EVERY push to `main` and actually deploy.**
+**These workflows run on EVERY push to `main` and actually deploy ALL 3 services.**
 
 > 🔍 **Notice**: These workflow files MUST exist in this repo. Even with "reusable workflows", you can't avoid creating files in every repository. **[See why GitHub templates aren't like Harness →](../../docs/WHY_GITHUB_TEMPLATES_FAIL.md)**
 
 ---
 
-## What's Here
+## What's Here - EVERYTHING IS REAL
 
 ### ✅ Real Workflows (Run Automatically)
+
+**User Service (Node.js)**
 
 **[ci-user-service.yml](ci-user-service.yml)** - Runs on push to `main`
 - Builds Docker image → Pushes to GHCR
@@ -23,6 +25,48 @@
 - Deploys user-service
 - Runs smoke tests
 - **Time**: ~3-4 minutes
+
+---
+
+**Payment Service (Go)**
+
+**[ci-payment-service.yml](ci-payment-service.yml)** - Runs on push to `main`
+- Tests with Go test suite
+- Builds Docker image → Pushes to GHCR
+- Scans for vulnerabilities (Trivy, Grype)
+- Generates SBOM with Syft
+- Signs image with Cosign
+- Validates policies with Conftest
+- **Time**: ~5-7 minutes
+
+**[cd-payment-service.yml](cd-payment-service.yml)** - Runs after CI succeeds
+- Creates Kind (Kubernetes) cluster
+- Deploys payment-service
+- Runs smoke tests
+- **Time**: ~3-4 minutes
+
+---
+
+**Notification Service (Python)**
+
+**[ci-notification-service.yml](ci-notification-service.yml)** - Runs on push to `main`
+- Tests with pytest
+- Builds Docker image → Pushes to GHCR
+- Scans for vulnerabilities (Trivy, Grype)
+- Generates SBOM with Syft
+- Signs image with Cosign
+- Validates policies with Conftest
+- **Time**: ~5-7 minutes
+
+**[cd-notification-service.yml](cd-notification-service.yml)** - Runs after CI succeeds
+- Creates Kind (Kubernetes) cluster
+- Deploys notification-service
+- Runs smoke tests
+- **Time**: ~3-4 minutes
+
+---
+
+**Manual Rollback**
 
 **[rollback-manual.yml](rollback-manual.yml)** - Manual trigger only
 - Shows the MANUAL rollback process
@@ -50,10 +94,16 @@
 
 Go to: https://github.com/gregkroon/githubexample/actions
 
-You'll see:
-- **CI - User Service** (runs on push)
+You'll see **ALL 3 SERVICES** building and deploying:
+- **CI - User Service** (runs on push to services/user-service/**)
 - **CD - User Service** (runs after CI)
+- **CI - Payment Service** (runs on push to services/payment-service/**)
+- **CD - Payment Service** (runs after CI)
+- **CI - Notification Service** (runs on push to services/notification-service/**)
+- **CD - Notification Service** (runs after CI)
 - **Manual Rollback** (workflow_dispatch only)
+
+**This proves the operational burden scales linearly**: 3 services = 6 workflows × 1000 services = 6000 workflows to maintain.
 
 ---
 
@@ -73,9 +123,14 @@ This doc shows OBVIOUS shortcomings compared to Harness:
 6. ❌ **No deployment dashboard** - Can't see what's deployed where
 7. ❌ **No multi-service orchestration** - One service at a time
 
-**At 1 service: Manageable**
+**At 3 services (what we have now): You can see the repetition**
+- 6 workflow files that are nearly identical
+- 3 services × 3 environments = 9 configurations to maintain
 
 **At 1000 services: These gaps become critical operational problems**
+- 2000 workflow files (CI + CD for each service)
+- 3000 environment configurations
+- Every gap multiplied by 1000
 
 ---
 

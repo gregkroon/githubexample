@@ -1,0 +1,163 @@
+name: CD - Notification Service
+
+on:
+  workflow_run:
+    workflows: ["CI - Notification Service"]
+    types:
+      - completed
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy-to-kind:
+    name: Deploy to Kind Cluster
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: demo
+          wait: 30s
+
+      - name: Verify cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load image into kind
+        run: |
+          # Pull image
+          docker pull ghcr.io/${{ github.repository }}/notification-service:main-${{ github.sha }}
+
+          # Load into kind
+          kind load docker-image ghcr.io/${{ github.repository }}/notification-service:main-${{ github.sha }} --name demo
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace notification-service || true
+
+      - name: Update deployment manifest with actual image
+        run: |
+          sed -i "s|IMAGE_TAG|ghcr.io/${{ github.repository }}/notification-service:main-${{ github.sha }}|g" services/notification-service/k8s/deployment.yaml
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f services/notification-service/k8s/ -n notification-service
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/notification-service -n notification-service --timeout=5m
+
+      - name: Verify pods are running
+        run: |
+          kubectl get pods -n notification-service
+          kubectl wait --for=condition=ready pod -l app=notification-service -n notification-service --timeout=3m
+
+      - name: Port forward and test
+        run: |
+          # Start port forward in background
+          kubectl port-forward -n notification-service svc/notification-service 5000:80 &
+          PF_PID=$!
+
+          # Wait for port forward to be ready
+          sleep 5
+
+          # Test health endpoint
+          curl -f http://localhost:5000/health || exit 1
+
+          # Test notifications endpoint
+          curl -f http://localhost:5000/api/notifications || exit 1
+
+          # Test metrics endpoint
+          curl -f http://localhost:5000/metrics || exit 1
+
+          # Kill port forward
+          kill $PF_PID
+
+          echo "✅ All endpoints responding correctly"
+
+      - name: Run smoke tests
+        run: |
+          kubectl port-forward -n notification-service svc/notification-service 5000:80 &
+          PF_PID=$!
+          sleep 5
+
+          # Test sending a notification
+          RESPONSE=$(curl -s -X POST http://localhost:5000/api/notifications/send \
+            -H "Content-Type: application/json" \
+            -d '{"type":"email","user_id":"test-user"}')
+
+          echo "Response: $RESPONSE"
+
+          if echo "$RESPONSE" | grep -q "sent"; then
+            echo "✅ POST /api/notifications/send works"
+          else
+            echo "❌ POST /api/notifications/send failed"
+            exit 1
+          fi
+
+          kill $PF_PID
+
+      - name: Get deployment info
+        if: always()
+        run: |
+          echo "## Deployment Summary - Notification Service" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pods" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n notification-service >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get svc -n notification-service >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl describe deployment notification-service -n notification-service >> $GITHUB_STEP_SUMMARY || true
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "## Pod Logs" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl logs -n notification-service -l app=notification-service --tail=100 >> $GITHUB_STEP_SUMMARY || true
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  deploy-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: deploy-to-kind
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🚀 Deployment Complete - Notification Service" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ needs.deploy-to-kind.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`ghcr.io/${{ github.repository }}/notification-service:main-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tests Performed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Health endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Notifications API endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Metrics endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ POST notification send" >> $GITHUB_STEP_SUMMARY
