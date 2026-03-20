@@ -1,0 +1,89 @@
+{
+  "name": "Production Branch Protection",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "refs/heads/main",
+        "refs/heads/production"
+      ],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 2,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_reviews": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": true
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          {
+            "context": "CI / build-and-test",
+            "integration_id": null
+          },
+          {
+            "context": "Security / code-scanning",
+            "integration_id": null
+          },
+          {
+            "context": "Security / dependency-review",
+            "integration_id": null
+          },
+          {
+            "context": "Security / container-scanning",
+            "integration_id": null
+          },
+          {
+            "context": "Policies / dockerfile-validation",
+            "integration_id": null
+          },
+          {
+            "context": "Policies / kubernetes-validation",
+            "integration_id": null
+          },
+          {
+            "context": "Policies / sbom-validation",
+            "integration_id": null
+          }
+        ]
+      }
+    },
+    {
+      "type": "non_fast_forward",
+      "parameters": {}
+    },
+    {
+      "type": "required_signatures",
+      "parameters": {}
+    },
+    {
+      "type": "required_linear_history",
+      "parameters": {}
+    },
+    {
+      "type": "required_deployments",
+      "parameters": {
+        "required_deployment_environments": [
+          "staging"
+        ]
+      }
+    }
+  ],
+  "bypass_actors": [
+    {
+      "actor_id": 1,
+      "actor_type": "OrganizationAdmin",
+      "bypass_mode": "always"
+    }
+  ]
+}

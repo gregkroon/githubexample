@@ -1,0 +1,68 @@
+name: 'Scan and Sign Container'
+description: 'Scans container image for CVEs with Trivy and Grype, then signs with Cosign'
+author: 'Platform Team'
+
+inputs:
+  image:
+    description: 'Container image to scan and sign (e.g., ghcr.io/myorg/service:tag)'
+    required: true
+  severity:
+    description: 'CVE severity threshold (CRITICAL, HIGH, MEDIUM, LOW)'
+    required: false
+    default: 'CRITICAL,HIGH'
+  fail-on-vulnerabilities:
+    description: 'Whether to fail the build if vulnerabilities are found'
+    required: false
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    # Scan with Trivy
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ inputs.image }}
+        severity: ${{ inputs.severity }}
+        exit-code: ${{ inputs.fail-on-vulnerabilities == 'true' && '1' || '0' }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    # Scan with Grype (second opinion)
+    - name: Run Grype vulnerability scanner
+      uses: anchore/scan-action@v3
+      with:
+        image: ${{ inputs.image }}
+        fail-build: ${{ inputs.fail-on-vulnerabilities == 'true' }}
+        severity-cutoff: ${{ inputs.severity == 'CRITICAL,HIGH' && 'high' || 'medium' }}
+
+    # Install Cosign
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@main
+      shell: bash
+
+    # Sign the image with keyless signing (OIDC)
+    - name: Sign container image
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        echo "Signing image: $IMAGE"
+        cosign sign --yes $IMAGE
+        echo "✅ Image signed successfully"
+
+    # Verify the signature
+    - name: Verify signature
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        echo "Verifying signature for: $IMAGE"
+        cosign verify $IMAGE \
+          --certificate-identity-regexp="https://github.com/.*/.github/workflows/.*" \
+          --certificate-oidc-issuer=https://token.actions.githubusercontent.com
+        echo "✅ Signature verified successfully"
+
+branding:
+  icon: 'shield'
+  color: 'blue'

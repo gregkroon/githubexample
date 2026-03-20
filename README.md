@@ -46,14 +46,20 @@ githubexperiment/
 │   └── notification-service/   # Python (Flask)
 │
 ├── platform/                    # Platform team's golden path
-│   ├── .github/workflows/      # Reusable workflows
-│   │   ├── ci-build-scan.yml         # CI with full security scanning
-│   │   ├── cd-deploy-direct.yml      # Direct K8s deployment
-│   │   └── cd-deploy-gitops.yml      # GitOps deployment
-│   └── policies/               # OPA policies
-│       ├── docker/             # Dockerfile security standards
-│       ├── kubernetes/         # K8s security policies
-│       └── sbom/               # Vulnerability policies
+│   ├── .github/
+│   │   ├── workflows/          # Reusable workflows
+│   │   │   ├── ci-build-scan.yml         # CI with full security scanning
+│   │   │   ├── cd-deploy-direct.yml      # Direct K8s deployment
+│   │   │   └── cd-deploy-gitops.yml      # GitOps deployment
+│   │   └── actions/            # Composite actions (reusable steps)
+│   │       ├── scan-and-sign/            # CVE scanning + Cosign signing
+│   │       └── validate-policies/        # OPA policy validation
+│   ├── policies/               # OPA policies
+│   │   ├── docker/             # Dockerfile security standards
+│   │   ├── kubernetes/         # K8s security policies
+│   │   └── sbom/               # Vulnerability policies
+│   └── rulesets/               # GitHub organization rulesets
+│       └── production-branch-protection.json  # Branch protection rules
 │
 ├── gitops/                      # GitOps repository
 │   └── apps/prod/user-service/

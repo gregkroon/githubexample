@@ -201,6 +201,468 @@ service:
 
 ---
 
+## "What About Composite Actions?"
+
+**Short answer**: Composite actions centralize **step-level logic** (even more granular than workflows), but don't solve the configuration, secrets, or governance challenges.
+
+### What Composite Actions Provide
+
+Composite actions let you bundle multiple steps into a reusable action:
+
+```yaml
+# platform/.github/actions/scan-and-sign/action.yml
+name: 'Scan and Sign Container'
+description: 'Scans container for CVEs and signs with Cosign'
+inputs:
+  image:
+    description: 'Container image to scan and sign'
+    required: true
+  severity:
+    description: 'CVE severity threshold'
+    required: false
+    default: 'CRITICAL,HIGH'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Scan with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ inputs.image }}
+        severity: ${{ inputs.severity }}
+        exit-code: '1'
+
+    - name: Scan with Grype
+      uses: anchore/scan-action@v3
+      with:
+        image: ${{ inputs.image }}
+        fail-build: true
+
+    - name: Sign with Cosign
+      uses: sigstore/cosign-installer@main
+    - run: |
+        cosign sign --yes ${{ inputs.image }}
+      shell: bash
+```
+
+**Repos can call this action:**
+
+```yaml
+# user-service/.github/workflows/ci.yml
+jobs:
+  build:
+    steps:
+      - name: Build image
+        run: docker build -t myimage:${{ github.sha }} .
+
+      - name: Scan and sign
+        uses: platform/.github/actions/scan-and-sign@main
+        with:
+          image: myimage:${{ github.sha }}
+```
+
+### What This Solves
+
+✅ **DRY principle**: Don't repeat scan + sign steps in every workflow
+✅ **Easier updates**: Change scanning logic in one place
+✅ **Version control**: Can pin to `@v1.0.0` or use `@main`
+
+### What This Does NOT Solve
+
+**1. Still requires workflow files in every repo**
+
+```yaml
+# You STILL need this file in all 1000 repos:
+# user-service/.github/workflows/ci.yml
+name: CI
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: platform/.github/actions/scan-and-sign@main
+        with:
+          image: myimage:${{ github.sha }}
+```
+
+❌ 1000 workflow files to maintain
+❌ No enforcement (repos can skip the composite action)
+❌ Configuration drift (which repos use which versions)
+
+**2. Still requires per-repo secrets**
+
+```yaml
+# Composite actions can't access organization secrets directly
+# Each repo must have secrets configured:
+- uses: platform/.github/actions/deploy@main
+  with:
+    image: ${{ inputs.image }}
+  env:
+    KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}  # ← Must be set in EVERY repo
+```
+
+❌ 1000 repos need KUBE_CONFIG secret
+❌ Rotating credentials = updating 1000 repos
+
+**3. Doesn't solve deployment governance**
+
+Composite actions work for **steps within a job**, but don't solve:
+- ❌ Approval workflows (still need GitHub Environments)
+- ❌ Deployment gates (still need custom webhooks)
+- ❌ Progressive delivery (still need Argo Rollouts)
+- ❌ Deployment verification (still need custom Prometheus queries)
+- ❌ Rollback (still manual)
+
+**4. Limited to GitHub Actions context**
+
+```yaml
+# Composite actions can't:
+# ❌ Make decisions based on external APIs
+# ❌ Query production metrics during deployment
+# ❌ Orchestrate multi-service deployments
+# ❌ Provide deployment dashboards
+
+# They only bundle workflow steps
+```
+
+### Composite Actions vs Harness Plugins
+
+**GitHub Composite Actions:**
+- Bundle workflow steps
+- Require workflow files in each repo
+- Limited to GitHub Actions syntax
+- No centralized configuration
+- No enforcement
+
+**Harness Plugins (similar concept):**
+- Bundle deployment logic
+- No per-service configuration needed
+- Can integrate with any external system
+- Centrally managed and versioned
+- Enforced through pipeline templates
+
+**Example: Custom deployment verification plugin**
+
+```yaml
+# Harness plugin (works across all services automatically)
+plugin:
+  identifier: custom_health_check
+  type: Verify
+  spec:
+    apiCalls:
+      - url: https://api.myservice.com/health
+        method: GET
+        assertion: response.status == 200
+      - url: https://api.myservice.com/metrics
+        method: GET
+        assertion: response.error_rate < 0.01
+
+# Services inherit this automatically via template
+# No per-service configuration needed
+```
+
+**GitHub composite action equivalent:**
+```yaml
+# Would require EACH repo to:
+# 1. Have a workflow file calling the action
+# 2. Configure API endpoints as inputs
+# 3. Manage secrets for authentication
+# 4. Trigger the action correctly
+
+# Result: 1000 configurations vs 1 centralized plugin
+```
+
+### Summary: Composite Actions
+
+**What they solve:**
+✅ Code reuse (DRY for workflow steps)
+✅ Easier maintenance (update in one place)
+
+**What they DON'T solve (~70% of the operational burden):**
+❌ Per-repo workflow files (still need 1000 of them)
+❌ Per-repo secrets (still need to manage 1000+)
+❌ GitHub Environments (still need 3000 configurations)
+❌ Deployment governance (approvals, gates, verification)
+❌ Enforcement (teams can bypass actions)
+❌ Visibility (which repos use which versions)
+
+**Composite actions are helpful for code reuse, but don't fundamentally change the operational burden at scale.**
+
+---
+
+## "What About GitHub Rulesets?"
+
+**Short answer**: Rulesets centralize **pre-merge governance** (branch protection), but don't solve **deployment-time governance** or operational burden.
+
+### What GitHub Rulesets Provide
+
+GitHub Rulesets (introduced in 2023) allow organization-level enforcement of repository rules:
+
+```yaml
+# Organization-level ruleset (applied to all repos)
+name: "Production Branch Protection"
+target: branch
+enforcement: active
+
+conditions:
+  ref_name:
+    include:
+      - "refs/heads/main"
+      - "refs/heads/production"
+
+rules:
+  # Require pull request before merging
+  pull_request:
+    required_approving_review_count: 2
+    dismiss_stale_reviews_on_push: true
+    require_code_owner_reviews: true
+    require_last_push_approval: true
+
+  # Require status checks
+  required_status_checks:
+    strict_status_check_policy: true
+    status_checks:
+      - context: "CI / build-and-test"
+      - context: "Security / code-scanning"
+      - context: "Security / dependency-review"
+
+  # Prevent force pushes
+  non_fast_forward: true
+
+  # Require signed commits
+  required_signatures: true
+```
+
+**This applies automatically to all 1000 repositories.**
+
+### What This Solves
+
+✅ **Centralized branch protection**: No need to configure per-repo
+✅ **Enforcement**: Impossible to bypass (applied at org/repo level)
+✅ **Consistency**: All repos follow the same rules
+✅ **Pre-merge governance**: Ensures code quality before merge
+
+**This is genuinely helpful and solves a real problem!**
+
+### What This Does NOT Solve
+
+**1. Rulesets are PRE-MERGE, not DEPLOYMENT-TIME**
+
+Rulesets control:
+- ✅ Branch protection (who can merge, required reviews)
+- ✅ Required CI checks (tests must pass)
+- ✅ Commit signing requirements
+
+Rulesets do NOT control:
+- ❌ Deployment approvals (who can deploy to production)
+- ❌ Deployment gates (validate metrics before deploying)
+- ❌ Progressive delivery (canary rollouts)
+- ❌ Deployment verification (is the deployment healthy?)
+- ❌ Rollback policies (when to auto-rollback)
+
+**Example: What rulesets CAN'T enforce**
+
+```yaml
+# You CANNOT create a ruleset that says:
+# "Production deployments require:
+#  - 2 platform engineer approvals
+#  - Successful canary analysis (error rate < 1%)
+#  - At least 1 hour between staging and production
+#  - Automated rollback if error rate spikes"
+
+# Rulesets only work at the Git level (branches, commits, PRs)
+# They don't understand deployments, environments, or runtime behavior
+```
+
+**2. GitHub Environments still require per-repo configuration**
+
+Even with rulesets, you still need to configure GitHub Environments:
+
+```bash
+# Rulesets don't configure environments
+# You STILL must do this for 1000 repos:
+
+for repo in $(gh repo list myorg --limit 1000 --json name -q '.[].name'); do
+  # Create production environment
+  gh api repos/myorg/$repo/environments/production -X PUT -f deployment_branch_policy=null
+
+  # Configure approvals
+  gh api repos/myorg/$repo/environments/production \
+    -X PUT \
+    -f reviewers='[{"type":"Team","id":12345}]'
+
+  # Add secrets
+  gh secret set KUBE_CONFIG --env production --repo myorg/$repo --body "$PROD_CRED"
+done
+
+# Result: Still 3000 environment configurations (1000 repos × 3 envs)
+```
+
+**3. Rulesets don't solve the deployment tooling complexity**
+
+Even with perfect pre-merge governance via rulesets, you still need:
+- ❌ ArgoCD for GitOps
+- ❌ Argo Rollouts for progressive delivery
+- ❌ Istio for traffic splitting
+- ❌ Prometheus for metrics
+- ❌ Custom webhook for deployment gates
+- ❌ Custom metrics collector for DORA metrics
+
+**Rulesets = 0 tools**
+**Deployment infrastructure = still need 24 tools**
+
+**4. No deployment-level visibility or control**
+
+```bash
+# Questions rulesets CAN'T answer:
+# - Which services are deployed to production right now?
+# - Which version is running in production?
+# - How many deployments happened today?
+# - What's the deployment success rate?
+# - Can I rollback service X to the previous version?
+
+# Rulesets only know about branches and PRs, not deployments
+```
+
+### Rulesets vs Harness Governance Policies
+
+**GitHub Rulesets (Pre-merge governance):**
+```yaml
+# Organization-level ruleset
+name: "Main Branch Protection"
+rules:
+  pull_request:
+    required_approving_review_count: 2
+  required_status_checks:
+    status_checks:
+      - "CI / build-and-test"
+```
+
+✅ **Solves**: Ensures code quality before merge
+❌ **Doesn't solve**: Deployment governance
+
+**Harness Governance Policies (Deployment-time governance):**
+```yaml
+# Organization-level policy
+policy:
+  name: "Production Deployment Policy"
+  enforcement: mandatory
+
+  rules:
+    # Require approvals
+    - approval:
+        minimumCount: 2
+        userGroups: ["platform-engineers"]
+        timeout: 24h
+
+    # Require successful verification
+    - verification:
+        type: Auto
+        sensitivity: MEDIUM
+        metrics:
+          - error_rate < 1%
+          - latency_p99 < 500ms
+
+    # Require time delay between environments
+    - delay:
+        from: staging
+        to: production
+        minimumDelay: 1h
+
+    # Auto-rollback on failure
+    - rollback:
+        trigger: verification_failure
+        automatic: true
+
+    # Deployment windows
+    - deploymentWindow:
+        environment: production
+        allowedDays: ["Mon", "Tue", "Wed", "Thu"]
+        allowedHours: "09:00-17:00"
+        timezone: "America/New_York"
+```
+
+**This applies automatically to all 1000 services.**
+
+**The key difference:**
+- **Rulesets**: Control what goes into Git (pre-merge)
+- **Harness policies**: Control what goes into production (deployment-time)
+
+**Both are needed, they solve different problems.**
+
+### Real-World Scenario: Preventing Bad Deployments
+
+**GitHub Rulesets prevent:**
+- ✅ Untested code from being merged
+- ✅ Unsigned commits from being pushed
+- ✅ Direct commits to main branch
+
+**GitHub Rulesets do NOT prevent:**
+- ❌ Deploying to production without approval
+- ❌ Deploying a version that increases error rates
+- ❌ Deploying outside business hours
+- ❌ Deploying to production immediately after staging (need soak time)
+
+**Harness policies prevent all of the above**, plus provide:
+- ✅ Automated rollback on failure
+- ✅ Deployment verification with ML
+- ✅ Multi-service deployment orchestration
+- ✅ Deployment audit trail
+
+### Summary: GitHub Rulesets
+
+**What they solve:**
+✅ Centralized branch protection (genuinely helpful!)
+✅ Pre-merge governance (required checks, approvals)
+✅ Consistency across 1000 repos
+
+**What they DON'T solve (~70% of deployment operational burden):**
+❌ Deployment approvals (still need GitHub Environments × 3000)
+❌ Deployment gates (still need custom webhooks)
+❌ Progressive delivery (still need Argo Rollouts + Istio)
+❌ Deployment verification (still need custom Prometheus queries)
+❌ Rollback automation (still manual)
+❌ Deployment observability (no dashboard)
+❌ Secret management (still per-repo)
+❌ The 24 deployment tools (still need to integrate and maintain)
+
+**Rulesets are excellent for pre-merge governance, but don't reduce the deployment operational burden.**
+
+---
+
+## Complete GitHub Feature Matrix
+
+Let's summarize what each GitHub feature solves:
+
+| Feature | What It Centralizes | What It Doesn't Solve |
+|---------|---------------------|----------------------|
+| **Reusable Workflows** | Workflow logic (CI/CD steps) | Environments (3000 configs), secrets (1000+), approvals, enforcement |
+| **Composite Actions** | Step-level logic (action bundles) | Workflow files (1000), secrets (1000+), environments (3000), governance |
+| **GitHub Rulesets** | Branch protection, pre-merge governance | Deployment approvals, gates, verification, rollback, observability |
+| **Organization Secrets** | Secrets for Actions workflows | Environment-specific secrets, secret rotation at scale |
+| **GitHub Environments** | Deployment target definition | Centralized configuration (need 3000 of them), deployment verification |
+
+**Combined, these features help, but still leave:**
+- ❌ 1000 workflow files to maintain
+- ❌ 3000 GitHub Environment configurations
+- ❌ 24 deployment tools to integrate
+- ❌ 6 custom services to build
+- ❌ No deployment verification or automated rollback
+- ❌ 2-4 FTE to operate
+- ❌ $5.2M over 5 years
+
+**Harness replaces all of this with:**
+- ✅ 1 centralized template
+- ✅ 0 per-service configurations
+- ✅ 8 tools (vs 24)
+- ✅ 0 custom services (vs 6)
+- ✅ Built-in verification and rollback
+- ✅ 0.5-1 FTE to operate
+- ✅ $3.9M over 5 years
+
+---
+
 ## Architecture: Side-by-Side
 
 ### Current (GitHub-Native)

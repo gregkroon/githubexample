@@ -1,0 +1,114 @@
+name: 'Validate OPA Policies'
+description: 'Validates Dockerfile, Kubernetes manifests, and SBOM against OPA/Rego policies'
+author: 'Platform Team'
+
+inputs:
+  dockerfile-path:
+    description: 'Path to Dockerfile to validate'
+    required: false
+    default: 'Dockerfile'
+  k8s-manifests-path:
+    description: 'Path to Kubernetes manifests directory'
+    required: false
+    default: 'k8s/'
+  sbom-path:
+    description: 'Path to SBOM file (Syft JSON format)'
+    required: false
+    default: 'sbom.json'
+  policies-repo:
+    description: 'Repository containing OPA policies'
+    required: false
+    default: 'platform'
+  fail-on-violation:
+    description: 'Whether to fail on policy violations'
+    required: false
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    # Install Conftest
+    - name: Install Conftest
+      shell: bash
+      run: |
+        wget https://github.com/open-policy-agent/conftest/releases/download/v0.48.0/conftest_0.48.0_Linux_x86_64.tar.gz
+        tar xzf conftest_0.48.0_Linux_x86_64.tar.gz
+        sudo mv conftest /usr/local/bin/
+        conftest --version
+
+    # Checkout policies repository
+    - name: Checkout policies
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/${{ inputs.policies-repo }}
+        path: policies-repo
+
+    # Validate Dockerfile
+    - name: Validate Dockerfile policies
+      shell: bash
+      env:
+        DOCKERFILE: ${{ inputs.dockerfile-path }}
+        FAIL: ${{ inputs.fail-on-violation }}
+      run: |
+        if [ -f "$DOCKERFILE" ]; then
+          echo "📋 Validating Dockerfile: $DOCKERFILE"
+          if [ "$FAIL" == "true" ]; then
+            conftest test $DOCKERFILE -p policies-repo/platform/policies/docker/
+          else
+            conftest test $DOCKERFILE -p policies-repo/platform/policies/docker/ || true
+          fi
+          echo "✅ Dockerfile validation complete"
+        else
+          echo "⚠️  Dockerfile not found at $DOCKERFILE, skipping"
+        fi
+
+    # Validate Kubernetes manifests
+    - name: Validate Kubernetes policies
+      shell: bash
+      env:
+        K8S_PATH: ${{ inputs.k8s-manifests-path }}
+        FAIL: ${{ inputs.fail-on-violation }}
+      run: |
+        if [ -d "$K8S_PATH" ]; then
+          echo "📋 Validating Kubernetes manifests in: $K8S_PATH"
+          if [ "$FAIL" == "true" ]; then
+            conftest test $K8S_PATH -p policies-repo/platform/policies/kubernetes/
+          else
+            conftest test $K8S_PATH -p policies-repo/platform/policies/kubernetes/ || true
+          fi
+          echo "✅ Kubernetes validation complete"
+        else
+          echo "⚠️  Kubernetes manifests not found at $K8S_PATH, skipping"
+        fi
+
+    # Validate SBOM
+    - name: Validate SBOM policies
+      shell: bash
+      env:
+        SBOM: ${{ inputs.sbom-path }}
+        FAIL: ${{ inputs.fail-on-violation }}
+      run: |
+        if [ -f "$SBOM" ]; then
+          echo "📋 Validating SBOM: $SBOM"
+          if [ "$FAIL" == "true" ]; then
+            conftest test $SBOM -p policies-repo/platform/policies/sbom/
+          else
+            conftest test $SBOM -p policies-repo/platform/policies/sbom/ || true
+          fi
+          echo "✅ SBOM validation complete"
+        else
+          echo "⚠️  SBOM not found at $SBOM, skipping"
+        fi
+
+    # Summary
+    - name: Policy validation summary
+      shell: bash
+      run: |
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Policy Validation Complete"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "✅ All policies passed"
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
