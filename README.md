@@ -129,12 +129,14 @@ githubexperiment/
 - Years 2-5 (operate): **$902k-$1,082k/year**
 - **5-Year Total**: **$5,245,000**
 
-### Hybrid Approach (GitHub CI + Dedicated CD Platform)
+### Hybrid Approach (GitHub CI + Harness CD)
 - Year 1: **$925,000**
 - Years 2-5: **$745k/year**
 - **5-Year Total**: **$3,905,000**
 
 💰 **Savings**: **$1,340,000 over 5 years**
+
+**[See detailed Harness comparison](docs/HARNESS_COMPARISON.md)** - Side-by-side architecture, features, and configurations
 
 ---
 
@@ -309,13 +311,14 @@ Start with the **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)**, then:
 
 1. **[Tutorial Walkthrough](docs/TUTORIAL_WALKTHROUGH.md)** - 🎯 Executable hands-on tutorial
 2. **[Day in the Life](docs/DAY_IN_THE_LIFE.md)** - ⭐ Complete developer workflow narrative
-3. **[Architecture](docs/ARCHITECTURE.md)** - System design and integration points
-4. **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** - What breaks, TCO, day-to-day reality
-5. **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** - Missing features vs dedicated platforms
-6. **[Tool Inventory](docs/TOOL_INVENTORY.md)** - All 24 tools, costs, maintenance
-7. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment config at scale
-8. **[Getting Started](docs/GETTING_STARTED.md)** - Full environment setup
-9. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer onboarding process
+3. **[Harness Comparison](docs/HARNESS_COMPARISON.md)** - 💡 How Harness.io simplifies everything
+4. **[Architecture](docs/ARCHITECTURE.md)** - System design and integration points
+5. **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** - What breaks, TCO, day-to-day reality
+6. **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** - Missing features vs dedicated platforms
+7. **[Tool Inventory](docs/TOOL_INVENTORY.md)** - All 24 tools, costs, maintenance
+8. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment config at scale
+9. **[Getting Started](docs/GETTING_STARTED.md)** - Full environment setup
+10. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer onboarding process
 
 ---
 
