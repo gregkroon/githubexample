@@ -4,6 +4,8 @@
 
 This repository demonstrates **what it actually takes** to build production-grade CI/CD for **1000+ repositories** using GitHub-native tooling.
 
+> 🚀 **This is REAL** - [Live workflows run on every push](docs/LIVE_DEPLOYMENT.md). Not a simulation.
+
 ---
 
 ## The Bottom Line
@@ -45,7 +47,22 @@ At 1000+ repos, you'll need:
 
 ---
 
-## Three Ways to Use This Repo
+## Four Ways to Use This Repo
+
+### 🚀 **I Want to See It Run** (5 min)
+
+**[→ Watch the Live Deployment](docs/LIVE_DEPLOYMENT.md)**
+
+Fork this repo and watch real CI/CD pipelines run:
+- Actual Docker builds pushed to GHCR
+- Real vulnerability scanning (Trivy, Grype)
+- Actual image signing with Cosign
+- Real deployment to Kubernetes
+- Smoke tests that actually run
+
+**Best for**: Seeing that everything ACTUALLY works
+
+---
 
 ### 🎯 **I Want to Try It** (30-60 min)
 
@@ -165,6 +182,7 @@ Years 2-5: $745k/year (operate)
 
 | Document | What It Covers | Read Time |
 |----------|----------------|-----------|
+| **[🚀 Live Deployment](docs/LIVE_DEPLOYMENT.md)** | **Watch real CI/CD run on every push** | 5 min |
 | **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)** | Complete analysis and recommendations | 15 min |
 | **[Tutorial Walkthrough](docs/TUTORIAL_WALKTHROUGH.md)** | Hands-on: add a feature and run the pipeline | 60 min |
 | **[Day in the Life](docs/DAY_IN_THE_LIFE.md)** | Follow a developer through a full deployment | 20 min |

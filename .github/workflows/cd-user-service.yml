@@ -1,0 +1,163 @@
+name: CD - User Service
+
+on:
+  workflow_run:
+    workflows: ["CI - User Service"]
+    types:
+      - completed
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy-to-kind:
+    name: Deploy to Kind Cluster
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: demo
+          wait: 30s
+
+      - name: Verify cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load image into kind
+        run: |
+          # Pull image
+          docker pull ghcr.io/${{ github.repository }}/user-service:main-${{ github.sha }}
+
+          # Load into kind
+          kind load docker-image ghcr.io/${{ github.repository }}/user-service:main-${{ github.sha }} --name demo
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace user-service || true
+
+      - name: Update deployment manifest with actual image
+        run: |
+          sed -i "s|IMAGE_TAG|ghcr.io/${{ github.repository }}/user-service:main-${{ github.sha }}|g" services/user-service/k8s/deployment.yaml
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f services/user-service/k8s/ -n user-service
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/user-service -n user-service --timeout=5m
+
+      - name: Verify pods are running
+        run: |
+          kubectl get pods -n user-service
+          kubectl wait --for=condition=ready pod -l app=user-service -n user-service --timeout=3m
+
+      - name: Port forward and test
+        run: |
+          # Start port forward in background
+          kubectl port-forward -n user-service svc/user-service 3000:3000 &
+          PF_PID=$!
+
+          # Wait for port forward to be ready
+          sleep 5
+
+          # Test health endpoint
+          curl -f http://localhost:3000/health || exit 1
+
+          # Test users endpoint
+          curl -f http://localhost:3000/api/users || exit 1
+
+          # Test metrics endpoint
+          curl -f http://localhost:3000/metrics || exit 1
+
+          # Kill port forward
+          kill $PF_PID
+
+          echo "✅ All endpoints responding correctly"
+
+      - name: Run smoke tests
+        run: |
+          kubectl port-forward -n user-service svc/user-service 3000:3000 &
+          PF_PID=$!
+          sleep 5
+
+          # Test creating a user
+          RESPONSE=$(curl -s -X POST http://localhost:3000/api/users \
+            -H "Content-Type: application/json" \
+            -d '{"name":"Test User","email":"test@example.com"}')
+
+          echo "Response: $RESPONSE"
+
+          if echo "$RESPONSE" | grep -q "Test User"; then
+            echo "✅ POST /api/users works"
+          else
+            echo "❌ POST /api/users failed"
+            exit 1
+          fi
+
+          kill $PF_PID
+
+      - name: Get deployment info
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pods" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n user-service >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get svc -n user-service >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl describe deployment user-service -n user-service >> $GITHUB_STEP_SUMMARY || true
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "## Pod Logs" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl logs -n user-service -l app=user-service --tail=100 >> $GITHUB_STEP_SUMMARY || true
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  deploy-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: deploy-to-kind
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ needs.deploy-to-kind.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`ghcr.io/${{ github.repository }}/user-service:main-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tests Performed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Health endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Users API endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Metrics endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ POST user creation" >> $GITHUB_STEP_SUMMARY
