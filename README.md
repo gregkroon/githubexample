@@ -63,62 +63,61 @@ At 1000+ repos, you'll need:
 
 ## Four Ways to Use This Repo
 
-### 🚀 **I Want to See It Run** (5 min)
+### 🚀 **I Want to See It Demonstrated** (30 min)
 
-**[→ Watch the Live Deployment](docs/LIVE_DEPLOYMENT.md)**
+**[→ Quick Start Demo](docs/QUICK_START_DEMO.md)**
 
-Fork this repo and watch real CI/CD pipelines run:
-- Actual Docker builds pushed to GHCR
-- Real vulnerability scanning (Trivy, Grype)
-- Actual image signing with Cosign
-- Real deployment to Kubernetes
-- Smoke tests that actually run
+Complete demonstration showing GitHub vs Harness:
+- See 3 real services with CI/CD running
+- Understand the parallel execution gap
+- See GitHub Enterprise features and limitations
+- Compare costs: $5.6M vs $3.7M over 5 years
+- Get clear recommendations by repo scale
 
-**Best for**: Seeing that everything ACTUALLY works
-
----
-
-### 🎯 **I Want to Try It** (30-60 min)
-
-**[→ Start the Tutorial](docs/TUTORIAL_WALKTHROUGH.md)**
-
-Actually add a feature to the code and see the full pipeline:
-- Add a PUT endpoint with validation
-- Write and run tests
-- Check against security policies
-- Experience what 17 security gates feels like
-
-**Best for**: Understanding the developer experience
+**Best for**: Decision-makers, stakeholders, anyone who wants the complete story
 
 ---
 
-### 📖 **I Want to Learn About It** (15-20 min)
+### 🎯 **I Want to Present It** (15-45 min)
 
-**[→ Read the Executive Summary](docs/EXECUTIVE_SUMMARY.md)**
+**[→ Demonstration Flow Guide](docs/DEMONSTRATION_FLOW.md)**
 
-Get the complete analysis:
+Step-by-step presentation guide with 4 formats:
+- **Executive Briefing** (15 min) - Business case
+- **Technical Deep Dive** (45 min) - Implementation details
+- **Security Review** (30 min) - Governance gaps
+- **Live Demo** (30 min) - Working example walkthrough
+
+**Best for**: Platform engineers presenting to stakeholders
+
+---
+
+### 📖 **I Want to Navigate the Docs** (varies)
+
+**[→ Essential Reading Guide](docs/ESSENTIAL_READING.md)**
+
+Organized navigation through all documentation:
+- Reading paths by role (decision-maker, engineer, security)
+- Document summaries (18 docs organized)
+- Quick reference (find exactly what you need)
+- The 3 essential documents
+
+**Best for**: Finding specific information efficiently
+
+---
+
+### 🔍 **I Want the Full Analysis** (15 min)
+
+**[→ Executive Summary](docs/EXECUTIVE_SUMMARY.md)**
+
+Complete analysis and recommendations:
 - What we built and what it proves
 - Tool inventory (all 24 tools)
 - Cost comparison ($5.8M vs $3.9M)
 - Operational burden (what breaks, how often)
-- Final recommendation
+- Final recommendation by scale
 
-**Best for**: Decision-makers evaluating approaches
-
----
-
-### 🔍 **I Want All the Details** (2-4 hours)
-
-**[→ Explore the Documentation](#documentation)**
-
-Deep dive into every aspect:
-- Architecture and integration points
-- Day-in-the-life of developers and platform engineers
-- GitHub workarounds for every governance gap
-- Harness comparison with side-by-side examples
-- Accuracy verification with citations
-
-**Best for**: Platform engineers implementing CI/CD
+**Best for**: Understanding the business case
 
 ---
 
@@ -212,12 +211,20 @@ Years 2-5: $745k/year (GitHub + Harness + engineers)
 
 ## Documentation
 
-### 📖 Start Here
+### 🎯 Essential Reading
+
+| Document | What It Covers | Read Time |
+|----------|----------------|-----------|
+| **[Quick Start Demo](docs/QUICK_START_DEMO.md)** | **30-min complete demonstration: GitHub vs Harness** | 30 min |
+| **[Essential Reading Guide](docs/ESSENTIAL_READING.md)** | **Navigate all docs by role and goal** | 5 min |
+| **[Demonstration Flow](docs/DEMONSTRATION_FLOW.md)** | **How to present this to stakeholders** | 15 min |
+| **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)** | Complete analysis and recommendations | 15 min |
+
+### 📖 Getting Started
 
 | Document | What It Covers | Read Time |
 |----------|----------------|-----------|
 | **[🚀 Live Deployment](docs/LIVE_DEPLOYMENT.md)** | **Watch real CI/CD run on every push** | 5 min |
-| **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)** | Complete analysis and recommendations | 15 min |
 | **[Tutorial Walkthrough](docs/TUTORIAL_WALKTHROUGH.md)** | Hands-on: add a feature and run the pipeline | 60 min |
 | **[Day in the Life](docs/DAY_IN_THE_LIFE.md)** | Follow a developer through a full deployment | 20 min |
 
