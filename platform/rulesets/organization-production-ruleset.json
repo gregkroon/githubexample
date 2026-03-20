@@ -1,0 +1,170 @@
+{
+  "name": "Production Branch Protection - Organization Wide",
+  "description": "Enterprise-wide ruleset enforcing security and compliance for production deployments across all 1000 repositories",
+  "enforcement": "active",
+  "target": "branch",
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "refs/heads/main",
+        "refs/heads/master",
+        "refs/heads/production"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 2,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": true
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          {
+            "context": "Required Security Scan",
+            "integration_id": 12345
+          },
+          {
+            "context": "Required SBOM Generation",
+            "integration_id": 12345
+          },
+          {
+            "context": "Required Policy Validation",
+            "integration_id": 12345
+          }
+        ]
+      }
+    },
+    {
+      "type": "required_workflows",
+      "parameters": {
+        "required_workflows": [
+          {
+            "path": ".github/workflows/required-security.yml",
+            "repository": "org-name/.github-private",
+            "ref": "refs/heads/main"
+          }
+        ]
+      }
+    },
+    {
+      "type": "non_fast_forward",
+      "parameters": {}
+    },
+    {
+      "type": "commit_message_pattern",
+      "parameters": {
+        "operator": "regex",
+        "pattern": "^(feat|fix|docs|chore|refactor|test)\\(.+\\):.+",
+        "name": "Conventional Commits",
+        "negate": false
+      }
+    }
+  ],
+  "bypass_actors": [
+    {
+      "actor_id": 1,
+      "actor_type": "OrganizationAdmin",
+      "bypass_mode": "always"
+    }
+  ]
+}
+
+/*
+ * GitHub Enterprise Feature: Organization Rulesets
+ * Purpose: Enforce policies across ALL repositories from one central location
+ * Cost: Included in GitHub Enterprise Cloud
+ *
+ * How to Apply:
+ * 1. Go to Organization Settings → Rules → Rulesets
+ * 2. Create new ruleset
+ * 3. Import this JSON configuration
+ * 4. Applies to all current and future repos
+ *
+ * What This Provides:
+ * ✅ Centralized policy management
+ * ✅ Requires 2 approvals + code owner review
+ * ✅ Enforces required status checks from Required Workflows
+ * ✅ Prevents force pushes to main
+ * ✅ Enforces commit message format
+ *
+ * What This DOESN'T Prevent:
+ * ❌ Developer's workflow deploying before required workflow completes
+ * ❌ Developer removing security jobs from their workflow
+ * ❌ Subtle bypasses (continue-on-error, conditional skips)
+ *
+ * The Core Issue:
+ *
+ * This ruleset requires status checks from Required Workflows.
+ * But it CANNOT enforce what happens in the developer's own workflow.
+ *
+ * Example:
+ *
+ * Required Workflow (org-wide):
+ *   ├─ Scans filesystem with Trivy ✅
+ *   └─ Creates status check "Required Security Scan" ✅
+ *
+ * Developer's Workflow (in their repo):
+ *   ├─ Builds Docker image
+ *   ├─ Skips image scan (removed from workflow)
+ *   ├─ Deploys to production
+ *   └─ Runs in PARALLEL with required workflow
+ *
+ * Result:
+ *   ├─ Required workflow status check passes ✅
+ *   ├─ Ruleset allows merge ✅
+ *   └─ But Docker image was NEVER scanned ❌
+ *
+ * Why:
+ *   - Required workflow scans source code (filesystem)
+ *   - Developer's workflow builds image AFTER checkout
+ *   - No mechanism to make deploy wait for required workflow
+ *   - Both workflows run independently
+ *
+ * Timing Race Condition:
+ *
+ * t=0:    Developer pushes to PR
+ * t=0:    Required workflow starts (filesystem scan)
+ * t=0:    Developer's workflow starts (build + test)
+ * t=3min: Developer's workflow completes ✅
+ * t=5min: Required workflow finds CVE in dependency ❌
+ *
+ * Ruleset check:
+ *   ✅ PR can be merged (required workflow created status)
+ *   ✅ 2 approvals obtained
+ *   ✅ All checks passed
+ *
+ * After merge:
+ *   t=6min: Deploy workflow runs
+ *   t=9min: Vulnerable code deployed to production ❌
+ *
+ * The required workflow found the CVE, but too late.
+ *
+ * Compare to Harness:
+ *
+ * In Harness, templates enforce sequential execution:
+ *
+ * template:
+ *   stages:
+ *     - stage:
+ *         name: Security
+ *         locked: true
+ *         spec:
+ *           scan:
+ *             failOnCVE: true
+ *             waitForResults: true  # ← Blocks next stage
+ *     - stage:
+ *         name: Deploy
+ *         dependsOn: [Security]  # ← Cannot run until security passes
+ *
+ * Result: Deployment CANNOT happen until security scan passes.
+ * This is architectural, not policy-based.
+ */

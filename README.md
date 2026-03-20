@@ -8,10 +8,12 @@ This repository demonstrates **what it actually takes** to build production-grad
 
 > ⚠️ **FAIR COMPARISON**: We assume **GitHub Enterprise** with ALL features enabled:
 > - GitHub Advanced Security
-> - Required Workflows
+> - Required Workflows (org-wide)
 > - Organization Rulesets
 > - CODEOWNERS enforcement
-> - Branch Protection
+> - Branch Protection Rules
+>
+> **We actually show you HOW to configure all these features** ([See setup guide →](docs/GITHUB_ENTERPRISE_SETUP.md))
 >
 > **Even with GitHub's most expensive tier (~$400k/year for 1000 repos), the architectural gap persists.**
 
@@ -223,6 +225,7 @@ Years 2-5: $745k/year (GitHub + Harness + engineers)
 
 | Document | What It Covers |
 |----------|----------------|
+| **[GitHub Enterprise Setup](docs/GITHUB_ENTERPRISE_SETUP.md)** | **How to enable ALL Enterprise features (with actual configs)** |
 | **[Architecture](docs/ARCHITECTURE.md)** | System design, integration points, deployment flows |
 | **[Tool Inventory](docs/TOOL_INVENTORY.md)** | All 24 tools, costs, and operational burden |
 | **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** | What breaks, TCO analysis, day-to-day reality |

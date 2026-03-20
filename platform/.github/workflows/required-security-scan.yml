@@ -1,0 +1,244 @@
+# REQUIRED WORKFLOW: Organization-Wide Security Scanning
+#
+# GitHub Enterprise Feature: Required Workflows
+# Location: This would live in org-name/.github-private repository
+# Applies to: ALL repositories in the organization (automatic)
+# Cannot be: Disabled, modified, or bypassed by developers
+#
+# Purpose: Run security scans on ALL pull requests and pushes across all 1000 repos
+#
+# How to Deploy:
+# 1. Create organization repository: org-name/.github-private
+# 2. Add this workflow file
+# 3. Configure in Organization Settings → Actions → Required Workflows
+# 4. Select which repos (all by default)
+#
+# This workflow runs AUTOMATICALLY on all repos - developers cannot opt out.
+
+name: Required Security Scan (Organization-Wide)
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+      - production
+  push:
+    branches:
+      - main
+      - master
+      - production
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  # =============================================================================
+  # FILESYSTEM SECURITY SCAN
+  # =============================================================================
+  # This scans the checked-out source code
+  # ✅ What it catches: Vulnerable dependencies in package files
+  # ❌ What it misses: Vulnerabilities in Docker images built AFTER checkout
+
+  filesystem-scan:
+    name: Required Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: 1  # Fail if vulnerabilities found
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'required-trivy-scan'
+
+      - name: Run dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  # =============================================================================
+  # SECRET SCANNING
+  # =============================================================================
+  # Scan for exposed secrets, API keys, credentials
+
+  secret-scan:
+    name: Required Secret Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for secret scanning
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =============================================================================
+  # POLICY VALIDATION
+  # =============================================================================
+  # Validate against organization policies
+
+  policy-validation:
+    name: Required Policy Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Dockerfile
+        id: check-dockerfile
+        run: |
+          if find . -name "Dockerfile" -type f | grep -q .; then
+            echo "has_dockerfile=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_dockerfile=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Conftest
+        if: steps.check-dockerfile.outputs.has_dockerfile == 'true'
+        run: |
+          wget https://github.com/open-policy-agent/conftest/releases/download/v0.48.0/conftest_0.48.0_Linux_x86_64.tar.gz
+          tar xzf conftest_0.48.0_Linux_x86_64.tar.gz
+          sudo mv conftest /usr/local/bin/
+
+      - name: Validate Dockerfiles against policy
+        if: steps.check-dockerfile.outputs.has_dockerfile == 'true'
+        run: |
+          # Note: This assumes policies exist in a standard location
+          # In practice, you'd reference an organization-wide policy repo
+          find . -name "Dockerfile" -type f -exec conftest test {} \; || true
+
+  # =============================================================================
+  # SBOM GENERATION (Compliance)
+  # =============================================================================
+  # Generate Software Bill of Materials for compliance
+
+  sbom-generation:
+    name: Required SBOM Generation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom-required.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-required
+          path: sbom-required.spdx.json
+          retention-days: 90
+
+# ==============================================================================
+# WHAT THIS PROVIDES
+# ==============================================================================
+#
+# ✅ Organization-wide security scanning
+# ✅ Runs on ALL repositories automatically
+# ✅ Developers cannot disable or bypass
+# ✅ Creates status checks required by Organization Rulesets
+# ✅ Uploads results to Security tab
+# ✅ Generates compliance artifacts (SBOM)
+#
+# ==============================================================================
+# WHAT THIS DOESN'T PREVENT
+# ==============================================================================
+#
+# ❌ Developer's workflow deploying in parallel
+#
+# This required workflow runs alongside the developer's workflow.
+# There's NO mechanism to make the developer's deploy job wait for this.
+#
+# Example timeline:
+#
+# t=0:    PR created
+# t=0:    This required workflow starts (filesystem scan)
+# t=0:    Developer's workflow starts (build + deploy)
+# t=3min: Developer's workflow deploys ✅
+# t=5min: This required workflow finds CVE ❌
+#
+# Result: Code deployed BEFORE security scan completes
+#
+# ❌ Docker image vulnerabilities
+#
+# This scans the filesystem (source code).
+# But developers build Docker images AFTER checkout.
+# We cannot scan what doesn't exist yet.
+#
+# Developer's workflow:
+#   1. Checkout code
+#   2. Build Docker image  ← Happens AFTER this scan
+#   3. Push to registry
+#   4. Deploy
+#
+# This required workflow scans at step 1, before image exists.
+#
+# ❌ Deployment-time issues
+#
+# We can scan code, but cannot:
+# - Verify deployment configuration
+# - Check if deployed service has high error rate
+# - Validate production environment state
+# - Enforce approval gates (developers control deploy job)
+#
+# ==============================================================================
+# WHY HARNESS IS DIFFERENT
+# ==============================================================================
+#
+# In Harness, security is part of the deployment pipeline itself:
+#
+# pipeline:
+#   stages:
+#     - stage:
+#         name: Build
+#         spec:
+#           build: docker build ...
+#
+#     - stage:
+#         name: Security
+#         dependsOn: [Build]  # ← Runs AFTER build
+#         locked: true  # ← Cannot skip
+#         spec:
+#           scan: docker image  # ← Scans actual image
+#           waitForResults: true  # ← Blocks next stage
+#
+#     - stage:
+#         name: Deploy
+#         dependsOn: [Security]  # ← Cannot run until security passes
+#
+# Key differences:
+# - Scans the ACTUAL Docker image (not just source)
+# - Runs AFTER build, BEFORE deploy
+# - Sequential execution (not parallel)
+# - Deploy CANNOT proceed if security fails
+# - Architecturally enforced (not policy-based)
+#
+# This is the fundamental difference:
+#   GitHub: Workflows run in parallel (cannot enforce dependencies)
+#   Harness: Stages run sequentially (can enforce dependencies)

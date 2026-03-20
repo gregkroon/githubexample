@@ -1,0 +1,123 @@
+# CODEOWNERS for Enterprise Governance
+#
+# This file enforces that the Platform Team must approve changes to
+# critical files across all repositories.
+#
+# GitHub Enterprise Feature: CODEOWNERS
+# Purpose: Prevent developers from modifying security-critical files without review
+# Limitation: Manual review doesn't scale to 1000 repos, subtle bypasses slip through
+#
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ==============================================================================
+# WORKFLOW FILES - Platform Team MUST approve
+# ==============================================================================
+# Any changes to CI/CD workflows require Platform Engineering approval
+# This prevents developers from:
+# - Removing security scanning jobs
+# - Changing approval gates
+# - Modifying deployment logic
+#
+# BUT: At 1000 repos, platform team can't catch subtle bypasses like:
+# - continue-on-error: true
+# - exit-code: 0 instead of 1
+# - Conditional skips (if: contains(..., 'skip'))
+
+/.github/workflows/ @platform-team @security-team
+
+# ==============================================================================
+# SECURITY POLICIES - Security Team MUST approve
+# ==============================================================================
+# Changes to security policies require Security Team approval
+# This includes OPA/Rego policies, security scanning configuration
+
+/platform/policies/ @security-team @platform-team
+
+# ==============================================================================
+# DEPLOYMENT MANIFESTS - Platform Team MUST approve
+# ==============================================================================
+# Kubernetes manifests, Dockerfiles, and deployment configs
+# This prevents developers from:
+# - Running as root
+# - Disabling security contexts
+# - Opening privileged ports
+
+**/Dockerfile @platform-team @security-team
+**/k8s/ @platform-team
+**/manifests/ @platform-team
+/gitops/ @platform-team
+
+# ==============================================================================
+# INFRASTRUCTURE CODE - Platform Team MUST approve
+# ==============================================================================
+# Terraform, CloudFormation, infrastructure-as-code
+
+/infrastructure/ @platform-team
+*.tf @platform-team
+*.tfvars @platform-team
+
+# ==============================================================================
+# CODEOWNERS FILE ITSELF - Platform Team + Security Team
+# ==============================================================================
+# Prevent developers from modifying who reviews what
+
+/.github/CODEOWNERS @platform-team @security-team
+
+# ==============================================================================
+# LIMITATIONS AT SCALE (1000 repos)
+# ==============================================================================
+#
+# What CODEOWNERS provides:
+# ✅ Requires designated team approval for specific files
+# ✅ Blocks PR merge without approval
+# ✅ Clear ownership model
+#
+# What CODEOWNERS DOESN'T prevent:
+# ❌ Subtle bypasses in workflow files:
+#    - continue-on-error: true (looks like error handling)
+#    - exit-code: 0 (looks like a config change)
+#    - if: "!contains(...)" (conditional logic)
+# ❌ Scale issues:
+#    - Platform team must review changes across ALL 1000 repos
+#    - 10-20 PRs/day × 1000 repos = unsustainable
+#    - Context switching between different services
+# ❌ Timing issues:
+#    - Review happens pre-merge, not pre-deploy
+#    - Developer can still merge after approval, then deploy immediately
+#
+# Example bypass that passes code review:
+#
+# jobs:
+#   security-scan:
+#     runs-on: ubuntu-latest
+#     continue-on-error: true  # ← Reviewer might think this is for stability
+#     steps:
+#       - uses: aquasecurity/trivy-action@master
+#         with:
+#           exit-code: 0  # ← Reviewer might miss this change
+#
+# Platform reviewer approves (looks reasonable)
+# ❌ But security scanning now NEVER fails
+#
+# ==============================================================================
+# COMPARE TO HARNESS
+# ==============================================================================
+#
+# In Harness:
+# - Templates live OUTSIDE developer repos
+# - Developers reference templates, cannot modify
+# - No code review needed (developers can't edit)
+# - Locked stages = architecturally impossible to bypass
+# - Scales to unlimited repos
+#
+# Configuration:
+# ```yaml
+# template:
+#   stages:
+#     - stage:
+#         name: Security
+#         locked: true  # ← Developers CANNOT modify
+# ```
+#
+# No CODEOWNERS needed because developers don't control templates.
+#
