@@ -435,7 +435,88 @@ pipeline:
 
 ---
 
-## Gap 7: No Deployment Observability ❌
+## Gap 7: Developers Can Bypass Security ❌
+
+### The CRITICAL Governance Problem
+
+**In GitHub, workflow files live IN THE DEVELOPER'S REPO.**
+
+This means developers can:
+- ✅ Edit `.github/workflows/ci-user-service.yml`
+- ✅ Comment out security scanning
+- ✅ Remove approval gates
+- ✅ Skip SBOM generation
+- ✅ Commit and push
+
+**This is the workflow that just ran** - look at it:
+[.github/workflows/ci-user-service.yml](../.github/workflows/ci-user-service.yml)
+
+### The Bypass Is Easy
+
+A developer can edit the file and:
+
+**Bypass 1: Skip security scanning**
+```yaml
+jobs:
+  security-scan:
+    continue-on-error: true  # ← Never fail, even with CVEs
+```
+
+**Bypass 2: Remove approval gate**
+```yaml
+  deploy-production:
+    # environment: production  # ← Commented out, no approval needed
+```
+
+**Bypass 3: Skip SBOM**
+```yaml
+# jobs:
+#   sbom:  # ← Entire job deleted
+```
+
+### What GitHub Provides (Doesn't Scale)
+
+**Branch Protection + CODEOWNERS**:
+- Requires platform team to review workflow changes
+- Across ALL 1000 repos
+- Catches obvious bypasses
+- **Misses subtle ones** (continue-on-error, exit-code: 0)
+
+**At 1000 repos**: Manual review doesn't scale.
+
+### What Harness Does
+
+**Templates live OUTSIDE repos** (in Harness platform):
+
+```yaml
+# In Harness (NOT in developer's repo)
+template:
+  stages:
+    - stage:
+        name: Security
+        locked: true  # ← DEVELOPERS CANNOT MODIFY
+        spec:
+          tests:
+            - trivy_scan:
+                required: true  # ← CANNOT skip
+            - sbom:
+                required: true  # ← CANNOT skip
+```
+
+**Developers reference template**:
+```yaml
+# In developer's repo
+pipeline:
+  templateRef: prod_deploy_v1  # ← Cannot modify template
+```
+
+**Result**: **Architecturally impossible to bypass security.**
+
+> 📖 **[Full Analysis: Developer vs Platform Team →](DEVELOPER_VS_PLATFORM.md)**
+
+---
+
+## Gap 8: No Deployment Observability ❌
 
 ### Questions GitHub Can't Answer
 
@@ -505,6 +586,7 @@ After the workflow completes, try to answer these:
 | **Deployment Windows** | ❌ Not supported | ✅ Built-in with freeze periods |
 | **Incident Awareness** | ❌ Deploys during incidents | ✅ Blocks on active incidents |
 | **Multi-Service Order** | ❌ No orchestration | ✅ Dependency management |
+| **🔴 Security Enforcement** | **❌ Developers can bypass** | **✅ Architecturally enforced** |
 | **Deployment Dashboard** | ❌ None (build your own) | ✅ Built-in with DORA metrics |
 | **Rollback on Bad Metrics** | ❌ Manual detection + rollback | ✅ Automatic |
 | **Time to Rollback** | ❌ 11+ minutes | ✅ < 60 seconds |

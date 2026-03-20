@@ -127,6 +127,13 @@ Deep dive into every aspect:
 
 ### What's Painful at Scale ❌
 
+**🔴 CRITICAL: Developers Can Bypass Security**:
+- Workflow files live IN developer repos
+- Developers can edit, comment out, or skip security steps
+- Platform team enforcement requires manual review of 1000 repos
+- **At scale: Trust + code review DOESN'T work**
+- **[Full analysis: Developer vs Platform Team →](docs/DEVELOPER_VS_PLATFORM.md)**
+
 **Configuration Sprawl**:
 - 1000 repos × 3 environments = 3,000 separate configurations
 - No centralized management
@@ -151,6 +158,7 @@ Deep dive into every aspect:
 - ❌ Centralized configuration
 - ❌ Multi-service orchestration
 - ❌ Deployment observability
+- ❌ **Architectural security enforcement**
 
 **Recommendation**: ❌ **Don't build custom CD at 1000+ repo scale**
 
@@ -207,6 +215,7 @@ Years 2-5: $745k/year (operate)
 |----------|----------------|
 | **[⚠️ GitHub Gaps (REAL)](docs/GITHUB_GAPS_REAL.md)** | **Obvious shortcomings in the running pipeline** |
 | **[💡 Why Templates Fail](docs/WHY_GITHUB_TEMPLATES_FAIL.md)** | **Proof: GitHub "templates" ≠ Harness templates** |
+| **[🔴 Developer vs Platform](docs/DEVELOPER_VS_PLATFORM.md)** | **CRITICAL: Can developers bypass security? (YES in GitHub)** |
 | **[GitHub Workarounds](docs/GITHUB_WORKAROUNDS.md)** | How to solve each governance gap (with code examples) |
 | **[Harness Comparison](docs/HARNESS_COMPARISON.md)** | Side-by-side: architecture, features, configs |
 | **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** | Missing features vs dedicated CD platforms |
