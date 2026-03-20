@@ -201,6 +201,7 @@ Years 2-5: $745k/year (operate)
 
 | Document | What It Covers |
 |----------|----------------|
+| **[⚠️ GitHub Gaps (REAL)](docs/GITHUB_GAPS_REAL.md)** | **Obvious shortcomings in the running pipeline** |
 | **[GitHub Workarounds](docs/GITHUB_WORKAROUNDS.md)** | How to solve each governance gap (with code examples) |
 | **[Harness Comparison](docs/HARNESS_COMPARISON.md)** | Side-by-side: architecture, features, configs |
 | **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** | Missing features vs dedicated CD platforms |

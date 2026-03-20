@@ -2,6 +2,8 @@
 
 **This is NOT a simulation. These workflows ACTUALLY run on every push.**
 
+> ⚠️ **[See What's Missing →](GITHUB_GAPS_REAL.md)** - After watching it run, see the OBVIOUS shortcomings vs Harness
+
 Unlike the simulated workflows in `/platform/.github/workflows/`, the workflows in `/.github/workflows/` are **real, production-ready CI/CD pipelines** that run automatically.
 
 ---
