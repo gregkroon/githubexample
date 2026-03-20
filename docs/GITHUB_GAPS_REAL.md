@@ -4,6 +4,10 @@
 
 After watching the workflows run at https://github.com/gregkroon/githubexample/actions, here are the **obvious shortcomings** compared to Harness.
 
+> ⚠️ **FAIR COMPARISON**: We assume **GitHub Enterprise** with ALL features:
+> - Required Workflows, Rulesets, Advanced Security, CODEOWNERS
+> - **Even with GitHub's most expensive tier, these gaps persist.**
+
 > 💡 **[Why GitHub "Templates" Aren't Like Harness →](WHY_GITHUB_TEMPLATES_FAIL.md)** - Using the actual workflows that ran as proof
 
 ---
@@ -439,50 +443,95 @@ pipeline:
 
 ### The CRITICAL Governance Problem
 
-**In GitHub, workflow files live IN THE DEVELOPER'S REPO.**
-
-This means developers can:
-- ✅ Edit `.github/workflows/ci-user-service.yml`
-- ✅ Comment out security scanning
-- ✅ Remove approval gates
-- ✅ Skip SBOM generation
-- ✅ Commit and push
+**Even in GitHub Enterprise with ALL features enabled, workflow files live IN THE DEVELOPER'S REPO.**
 
 **This is the workflow that just ran** - look at it:
 [.github/workflows/ci-user-service.yml](../.github/workflows/ci-user-service.yml)
 
-### The Bypass Is Easy
+Developers can still:
+- ✅ Edit this file (it's in their repo)
+- ✅ Comment out security scanning
+- ✅ Remove approval gates
+- ✅ Skip SBOM generation
+- ✅ Add subtle bypasses (continue-on-error, conditionals)
 
-A developer can edit the file and:
+### Even with GitHub Enterprise Features
 
-**Bypass 1: Skip security scanning**
+**✅ Required Workflows** (Enterprise feature):
+- Platform team defines org-wide workflows
+- Runs on all repos automatically
+- **BUT**: Runs in parallel with developer's workflow
+- **Problem**: Can't block developer's deploy job
+- **Result**: Developer can deploy before required workflow completes
+
+**✅ Organization Rulesets** (Enterprise feature):
+- Enforce status checks across organization
+- **BUT**: Status checks come from workflows
+- **Problem**: If developer removes job, check never created
+- **Result**: Depends on configuration (timeout or allow)
+
+**✅ CODEOWNERS** (Enterprise feature):
+- Requires platform team approval for workflow changes
+- **BUT**: Manual review of 1000 repos doesn't scale
+- **Problem**: Subtle bypasses slip through code review
+- **Result**: `continue-on-error: true` looks innocent but bypasses security
+
+### The Bypass Examples (Still Work with Enterprise)
+
+**Bypass 1: Skip security even with Required Workflows**
+```yaml
+jobs:
+  # Required workflow scans filesystem (can't stop this)
+  # But developer's workflow builds and deploys in parallel:
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy  # Runs regardless of required workflow status
+        run: kubectl apply -f manifests/
+```
+
+**Bypass 2: Subtle bypass that passes code review**
 ```yaml
 jobs:
   security-scan:
-    continue-on-error: true  # ← Never fail, even with CVEs
+    continue-on-error: true  # ← Looks like error handling
+    # But actually: never fails even with critical CVEs
 ```
 
-**Bypass 2: Remove approval gate**
+**Bypass 3: Conditional bypass**
 ```yaml
-  deploy-production:
-    # environment: production  # ← Commented out, no approval needed
+jobs:
+  security-scan:
+    if: "!contains(github.event.head_commit.message, 'hotfix')"
+    # ← Easy to miss in code review
+    # Then: git commit -m "Fix bug hotfix"
 ```
 
-**Bypass 3: Skip SBOM**
-```yaml
-# jobs:
-#   sbom:  # ← Entire job deleted
+**Bypass 4: Timing race**
+```
+t=0: Push code
+t=0: Required workflow starts (filesystem scan)
+t=0: Developer's workflow starts (build + deploy)
+t=3min: Developer's workflow deploys ✅
+t=5min: Required workflow finds CVE ❌
+
+Result: Vulnerable code ALREADY IN PRODUCTION
 ```
 
-### What GitHub Provides (Doesn't Scale)
+### What GitHub Enterprise Provides
 
-**Branch Protection + CODEOWNERS**:
-- Requires platform team to review workflow changes
-- Across ALL 1000 repos
-- Catches obvious bypasses
-- **Misses subtle ones** (continue-on-error, exit-code: 0)
+**✅ Pre-merge enforcement**:
+- Required Workflows run before merge
+- Rulesets enforce policies
+- CODEOWNERS requires reviews
 
-**At 1000 repos**: Manual review doesn't scale.
+**❌ Deployment-time enforcement**:
+- Cannot block developer's deploy job
+- No cross-workflow dependencies
+- Parallel execution allows races
+
+**At 1000 repos**: Even with all Enterprise features, cannot guarantee security.
 
 ### What Harness Does
 

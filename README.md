@@ -6,6 +6,15 @@ This repository demonstrates **what it actually takes** to build production-grad
 
 > 🚀 **This is REAL** - [Live workflows run on every push](docs/LIVE_DEPLOYMENT.md). Not a simulation.
 
+> ⚠️ **FAIR COMPARISON**: We assume **GitHub Enterprise** with ALL features enabled:
+> - GitHub Advanced Security
+> - Required Workflows
+> - Organization Rulesets
+> - CODEOWNERS enforcement
+> - Branch Protection
+>
+> **Even with GitHub's most expensive tier (~$400k/year for 1000 repos), the architectural gap persists.**
+
 ---
 
 ## The Bottom Line
@@ -166,23 +175,34 @@ Deep dive into every aspect:
 
 ## Cost Comparison
 
-### GitHub-Native (with all workarounds)
+### GitHub Enterprise (All Features Enabled)
 ```
-Year 1: $1,477k (build + operate + custom services)
-Years 2-5: $1,092k/year (operate + maintenance)
+GitHub Enterprise Cloud: ~$400k/year (1000 users @ $21/user + Advanced Security)
+Custom Services (6): $200k build + $100k/year maintenance
+Platform Engineers (2-4 FTE): $600k/year
+
+Year 1: $1,477k (build + operate + GitHub Enterprise)
+Years 2-5: $1,092k/year (GitHub + maintenance + engineers)
 
 5-Year Total: $5,845,000
 ```
 
 ### Hybrid (GitHub CI + Harness CD)
 ```
+GitHub Team: $92k/year (1000 users @ $4/user for CI only)
+Harness CD: $400k/year (enterprise license)
+Platform Engineers (0.5-1 FTE): $250k/year
+
 Year 1: $925k (implement)
-Years 2-5: $745k/year (operate)
+Years 2-5: $745k/year (GitHub + Harness + engineers)
 
 5-Year Total: $3,905,000
 
 💰 Savings: $1,940,000 (33%)
 ```
+
+> **Note**: GitHub Enterprise pricing includes ALL features (Required Workflows, Advanced Security, Rulesets).
+> **Even with the most expensive GitHub tier, total cost is higher due to custom engineering needs.**
 
 **[See detailed cost breakdown](docs/OPERATIONAL_BURDEN.md#total-cost-of-ownership-tco-analysis)**
 
