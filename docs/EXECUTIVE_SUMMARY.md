@@ -512,3 +512,25 @@ And in the case of enterprise CD at scale, dedicated platforms have.
 ---
 
 **That's the brutal truth.**
+
+---
+
+## What to Read Next
+
+### Want to Try It?
+**[→ Tutorial Walkthrough](TUTORIAL_WALKTHROUGH.md)** - Add a feature and run the pipeline (60 min)
+
+### Want the Details?
+- **[GitHub Workarounds](GITHUB_WORKAROUNDS.md)** - How to solve each gap (with code)
+- **[Harness Comparison](HARNESS_COMPARISON.md)** - Side-by-side comparison
+- **[Operational Burden](OPERATIONAL_BURDEN.md)** - TCO analysis
+
+### Want to Set It Up?
+**[→ Getting Started](GETTING_STARTED.md)** - Full environment setup
+
+### Not Sure Where to Go?
+**[→ Navigation Guide](NAVIGATION.md)** - Find the right doc for you
+
+---
+
+**[← Back to README](../README.md)**
