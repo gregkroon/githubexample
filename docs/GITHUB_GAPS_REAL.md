@@ -4,6 +4,8 @@
 
 After watching the workflows run at https://github.com/gregkroon/githubexample/actions, here are the **obvious shortcomings** compared to Harness.
 
+> 💡 **[Why GitHub "Templates" Aren't Like Harness →](WHY_GITHUB_TEMPLATES_FAIL.md)** - Using the actual workflows that ran as proof
+
 ---
 
 ## Gap 1: Deployment Succeeds But Service Has High Error Rate ❌

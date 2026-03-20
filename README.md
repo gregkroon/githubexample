@@ -202,6 +202,7 @@ Years 2-5: $745k/year (operate)
 | Document | What It Covers |
 |----------|----------------|
 | **[⚠️ GitHub Gaps (REAL)](docs/GITHUB_GAPS_REAL.md)** | **Obvious shortcomings in the running pipeline** |
+| **[💡 Why Templates Fail](docs/WHY_GITHUB_TEMPLATES_FAIL.md)** | **Proof: GitHub "templates" ≠ Harness templates** |
 | **[GitHub Workarounds](docs/GITHUB_WORKAROUNDS.md)** | How to solve each governance gap (with code examples) |
 | **[Harness Comparison](docs/HARNESS_COMPARISON.md)** | Side-by-side: architecture, features, configs |
 | **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** | Missing features vs dedicated CD platforms |

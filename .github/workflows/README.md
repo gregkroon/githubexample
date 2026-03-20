@@ -2,6 +2,8 @@
 
 **These workflows run on EVERY push to `main` and actually deploy.**
 
+> 🔍 **Notice**: These workflow files MUST exist in this repo. Even with "reusable workflows", you can't avoid creating files in every repository. **[See why GitHub templates aren't like Harness →](../../docs/WHY_GITHUB_TEMPLATES_FAIL.md)**
+
 ---
 
 ## What's Here
