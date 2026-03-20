@@ -22,6 +22,185 @@ This document shows what changes if you use **Harness for CD** (while keeping Gi
 
 ---
 
+## "But Don't GitHub Reusable Workflows Solve This?"
+
+**Short answer**: They centralize workflow LOGIC (~30% of the problem), but not configuration, secrets, or governance (~70% of the problem).
+
+### What Reusable Workflows Actually Centralize
+
+GitHub reusable workflows let you define deployment steps once:
+
+```yaml
+# platform/.github/workflows/cd-deploy.yml (CENTRALIZED LOGIC)
+name: Deploy
+on:
+  workflow_call:
+    inputs:
+      environment: { required: true, type: string }
+      image: { required: true, type: string }
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}  # Still references per-repo config
+    steps:
+      - name: Scan for CVEs
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ inputs.image }}
+      - name: Deploy
+        run: kubectl apply -f deployment.yaml
+```
+
+✅ **Centralized**: The scanning and deployment steps
+❌ **NOT centralized**: Environment configuration, approvals, secrets
+
+### The @main vs Version Pinning Trade-off
+
+**Option 1: Auto-update with `@main`**
+
+```yaml
+# user-service/.github/workflows/deploy.yml
+jobs:
+  deploy:
+    uses: platform/.github/workflows/cd-deploy.yml@main  # Auto-updates
+```
+
+✅ **Pros**: Services automatically get new features (like CVE scanning)
+❌ **Cons**:
+- One bug breaks all 1000 repos instantly
+- No gradual rollout or testing possible
+- Too risky at enterprise scale
+
+**Option 2: Version pinning (safer)**
+
+```yaml
+# user-service/.github/workflows/deploy.yml
+jobs:
+  deploy:
+    uses: platform/.github/workflows/cd-deploy.yml@v1.2.0  # Pinned
+```
+
+✅ **Pros**: Safe, can test before rolling out
+❌ **Cons**:
+- **Must update 1000 workflow files** to roll out new features
+- Some repos lag behind on old versions forever
+- Configuration drift inevitable
+
+**Most enterprises choose version pinning** (safer), which means back to updating 1000 repos.
+
+### What STILL Requires Per-Repo Configuration
+
+Even with reusable workflows, you must still manage:
+
+**1. GitHub Environments (3000 configurations)**
+```bash
+# For each repo × each environment, you must configure:
+gh api repos/myorg/user-service/environments/production -X PUT \
+  -f reviewers='[{"type":"Team","id":12345}]' \
+  -f deployment_branch_policy=null
+
+# Scenario: Change from "2 approvers" to "3 approvers"
+# Result: Update 1000 GitHub Environments (4-8 hours of scripting)
+```
+
+**2. Secrets Management (1000+ configurations)**
+```bash
+# Scenario: Rotate Kubernetes credentials
+# GitHub: Update secret in 1000 repos
+for repo in $(gh repo list --limit 1000); do
+  gh secret set KUBE_CONFIG --repo $repo --body "$NEW_CRED"
+done
+
+# Harness: Update one connector (2 minutes)
+# Done. All 1000 services use the new credential.
+```
+
+**3. No Enforcement Mechanism**
+```yaml
+# A team can bypass your reusable workflow entirely:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - run: kubectl apply -f deployment.yaml  # No scanning, no approvals
+```
+
+❌ No way to enforce all repos use your reusable workflow
+❌ No central visibility into which repos are compliant
+
+**4. Configuration Drift After 6 Months**
+```bash
+$ gh api graphql ... | jq '.repositories[] | {name, workflow_version}'
+
+{"name": "user-service", "workflow_version": "v1.3.0"}     # Latest
+{"name": "payment-service", "workflow_version": "v1.2.0"}  # Missing CVE scan
+{"name": "legacy-service", "workflow_version": "v0.9.0"}   # Ancient
+
+# Result: Some repos have security scanning, some don't
+```
+
+### Harness Templates: TRUE Centralization
+
+With Harness, you centralize **everything**:
+
+```yaml
+# Platform team: Define ONCE
+template:
+  name: Standard Deployment
+  spec:
+    execution:
+      steps:
+        - step:
+            type: Approval
+            spec:
+              approvers: { userGroups: [prod-approvers] }
+              minimumCount: 3  # ← Change here, affects all 1000 services instantly
+        - step:
+            type: Verify
+            spec: { type: Cosign }  # ← Add CVE scanning, all services get it
+        - step:
+            type: K8sRollingDeploy
+```
+
+**Services just reference the template:**
+```yaml
+service:
+  name: user-service
+  # That's it. No workflow file, no environment config, no secrets
+```
+
+**Change approval from "2 reviewers" to "3 reviewers":**
+- GitHub: Script to update 1000 repos (4-8 hours)
+- Harness: Edit template (2 minutes, all services updated)
+
+**Rotate Kubernetes credentials:**
+- GitHub: Update secret in 1000 repos (scripting + debugging)
+- Harness: Update connector (2 minutes, all services updated)
+
+**Add CVE scanning step:**
+- GitHub (with @main): All services get it, but one bug breaks everything
+- GitHub (with pinning): Must update 1000 workflow files
+- Harness: Add to template, all services get it safely
+
+### Summary
+
+**Reusable workflows centralize ~30% of the problem** (workflow logic)
+
+**They DON'T centralize ~70% of the problem:**
+- ❌ GitHub Environment configurations (3000 of them)
+- ❌ Secrets management (1000+ repos)
+- ❌ Approval rules (per-environment)
+- ❌ Infrastructure configuration
+- ❌ Enforcement (teams can bypass workflows)
+- ❌ Visibility (which repos use which versions)
+- ❌ Rollback capability
+- ❌ Deployment verification
+
+**That's why the 5-year cost is still $5.2M vs $3.9M** even with reusable workflows.
+
+---
+
 ## Architecture: Side-by-Side
 
 ### Current (GitHub-Native)
