@@ -6,19 +6,17 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Prometheus metrics
-const register = new promClient.Register();
+const register = promClient.register;
 const httpRequestDuration = new promClient.Histogram({
   name: 'http_request_duration_seconds',
   help: 'Duration of HTTP requests in seconds',
-  labelNames: ['method', 'route', 'status_code'],
-  registers: [register]
+  labelNames: ['method', 'route', 'status_code']
 });
 
 const httpRequestTotal = new promClient.Counter({
   name: 'http_requests_total',
   help: 'Total number of HTTP requests',
-  labelNames: ['method', 'route', 'status_code'],
-  registers: [register]
+  labelNames: ['method', 'route', 'status_code']
 });
 
 // Logger
