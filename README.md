@@ -4,120 +4,97 @@
 
 This repository demonstrates **what it actually takes** to build production-grade CI/CD for **1000+ repositories** using GitHub-native tooling.
 
-> 🚀 **This is REAL** - [Live workflows run on every push](docs/LIVE_DEPLOYMENT.md). Not a simulation.
-
-> ⚠️ **FAIR COMPARISON**: We assume **GitHub Enterprise** with ALL features enabled:
-> - GitHub Advanced Security
-> - Required Workflows (org-wide)
-> - Organization Rulesets
-> - CODEOWNERS enforcement
-> - Branch Protection Rules
->
-> **We actually show you HOW to configure all these features** ([See setup guide →](docs/GITHUB_ENTERPRISE_SETUP.md))
->
-> **Even with GitHub's most expensive tier (~$400k/year for 1000 repos), the architectural gap persists.**
+> 🚀 **This is REAL** - [All workflows run on every push](#see-it-run). Not a simulation.
 
 ---
 
-## The Bottom Line
+## The Question
+
+**Your company has 1000 microservices. You need**:
+- Automated security scanning
+- Approval gates for production
+- One-click rollbacks
+- Centralized governance
+
+**Can you build this with GitHub-native tooling?**
+
+---
+
+## The Answer
 
 | Metric | GitHub-Native | GitHub CI + Harness CD |
 |--------|---------------|------------------------|
 | **Tools required** | 24 tools | 8 tools |
 | **Custom services to build** | 6 services (17 weeks) | 0 services |
 | **Platform engineers needed** | 2-4 FTE | 0.5-1 FTE |
-| **5-year cost** | $5.8M | $3.9M |
+| **5-year cost** | $5.6M | $3.9M |
 | **Verdict** | ⚠️ Possible but expensive | ✅ Purpose-built for scale |
 
 **The gap isn't functionality—it's operational efficiency.**
 
 ---
 
-## What This Repository Proves
+## See It Run
 
-### ✅ You CAN Build It - And It's ALL REAL
+**3 production microservices** with **real CI/CD pipelines that execute on every push**:
 
-This repo contains a **complete working implementation** with **ACTUAL CI/CD pipelines that run on every push**:
-- **3 production microservices** - ALL with real CI/CD workflows:
-  - **user-service** (Node.js) - Builds, scans, signs, deploys to Kind ✅
-  - **payment-service** (Go) - Builds, scans, signs, deploys to Kind ✅
-  - **notification-service** (Python) - Builds, scans, signs, deploys to Kind ✅
-- **Full CI/CD pipelines** with 17 security gates
-- **Progressive delivery** with canary rollouts
-- **Policy enforcement** at every stage
-- **Artifact signing** and SBOM generation
+| Service | Language | Pipeline | Status |
+|---------|----------|----------|--------|
+| **user-service** | Node.js | Build → Scan → Sign → Deploy | ✅ **RUNS LIVE** |
+| **payment-service** | Go | Build → Scan → Sign → Deploy | ✅ **RUNS LIVE** |
+| **notification-service** | Python | Build → Scan → Sign → Deploy | ✅ **RUNS LIVE** |
 
-**Everything works. This is not simulated - it ACTUALLY RUNS on every push to main.**
+**Each pipeline has 17 security gates**:
+- Secret scanning, dependency scanning, container scanning
+- SBOM generation, image signing, policy validation
+- Deployment verification, smoke tests
 
-### ❌ But It's Expensive at Scale
-
-At 1000+ repos, you'll need:
-- **24 tools** to integrate and maintain
-- **6 custom services** to build (deployment gates, DORA metrics, etc.)
-- **3,000 environment configurations** (no centralized management)
-- **17 weeks** of engineering to build it
-- **2-4 FTE** to operate it
-- **$5.8M** over 5 years
+**Fork this repo and watch it run yourself.**
 
 ---
 
-## Four Ways to Use This Repo
+## Three Ways to Use This Repository
 
-### 🚀 **I Want to See It Demonstrated** (30 min)
+### 🎯 For Decision-Makers (30 min)
 
 **[→ Quick Start Demo](docs/QUICK_START_DEMO.md)**
 
 Complete demonstration showing GitHub vs Harness:
-- See 3 real services with CI/CD running
-- Understand the parallel execution gap
-- See GitHub Enterprise features and limitations
-- Compare costs: $5.6M vs $3.7M over 5 years
-- Get clear recommendations by repo scale
+- See the 3 real services running
+- Understand the critical gaps
+- See cost comparison ($5.6M vs $3.9M)
+- Get recommendations by scale
 
-**Best for**: Decision-makers, stakeholders, anyone who wants the complete story
-
----
-
-### 🎯 **I Want to Present It** (15-45 min)
-
-**[→ Demonstration Flow Guide](docs/DEMONSTRATION_FLOW.md)**
-
-Step-by-step presentation guide with 4 formats:
-- **Executive Briefing** (15 min) - Business case
-- **Technical Deep Dive** (45 min) - Implementation details
-- **Security Review** (30 min) - Governance gaps
-- **Live Demo** (30 min) - Working example walkthrough
-
-**Best for**: Platform engineers presenting to stakeholders
+**Best for**: Understanding the complete story fast.
 
 ---
 
-### 📖 **I Want to Navigate the Docs** (varies)
+### 🔧 For Platform Engineers (2-4 hours)
 
-**[→ Essential Reading Guide](docs/ESSENTIAL_READING.md)**
+**Start here**:
 
-Organized navigation through all documentation:
-- Reading paths by role (decision-maker, engineer, security)
-- Document summaries (18 docs organized)
-- Quick reference (find exactly what you need)
-- The 3 essential documents
+| Document | What It Covers | Time |
+|----------|----------------|------|
+| **[Technical Analysis](docs/TECHNICAL_ANALYSIS.md)** | Architecture, tool inventory, operational burden, costs | 45 min |
+| **[GitHub Analysis](docs/GITHUB_ANALYSIS.md)** | 7 critical gaps, Enterprise features, workarounds | 60 min |
+| **[Harness Comparison](docs/HARNESS_COMPARISON.md)** | Side-by-side architecture and feature comparison | 30 min |
+| **[Hands-On Guide](docs/HANDS_ON_GUIDE.md)** | Watch it run, set it up locally, try adding a feature | 60 min |
 
-**Best for**: Finding specific information efficiently
+**Best for**: Deep understanding of implementation and alternatives.
 
 ---
 
-### 🔍 **I Want the Full Analysis** (15 min)
+### 📊 For Presentations (15-45 min)
 
-**[→ Executive Summary](docs/EXECUTIVE_SUMMARY.md)**
+**[→ Demonstration Flow](docs/DEMONSTRATION_FLOW.md)**
 
-Complete analysis and recommendations:
-- What we built and what it proves
-- Tool inventory (all 24 tools)
-- Cost comparison ($5.8M vs $3.9M)
-- Operational burden (what breaks, how often)
-- Final recommendation by scale
+Step-by-step scripts for 4 presentation formats:
+- Executive Briefing (15 min)
+- Technical Deep Dive (45 min)
+- Security Review (30 min)
+- Live Demo (30 min)
 
-**Best for**: Understanding the business case
+**Best for**: Presenting to stakeholders with any technical level.
 
 ---
 
@@ -131,130 +108,275 @@ Complete analysis and recommendations:
 - Reusable workflows reduce duplication
 - OIDC for cloud authentication
 - Good developer experience
-- **PROVEN**: All 3 services build, scan, sign, and deploy automatically
+
+**Proven**: All 3 services build, scan, sign, and deploy automatically.
 
 **Recommendation**: ✅ **Use GitHub Actions for CI**
 
+---
+
 ### What's Painful at Scale ❌
 
-**🔴 CRITICAL: Developers Can Bypass Security**:
-- Workflow files live IN developer repos
-- Developers can edit, comment out, or skip security steps
-- Platform team enforcement requires manual review of 1000 repos
-- **At scale: Trust + code review DOESN'T work**
-- **[Full analysis: Developer vs Platform Team →](docs/DEVELOPER_VS_PLATFORM.md)**
+#### 🔴 CRITICAL: Parallel Execution Race Condition
 
-**Configuration Sprawl**:
-- 1000 repos × 3 environments = 3,000 separate configurations
+```
+t=0:   Developer pushes code
+t=0:   Required Workflow starts (scans filesystem)
+t=0:   Developer's workflow starts (builds image, deploys)
+t=3m:  Developer's workflow DEPLOYS ✅
+t=5m:  Required workflow finds CVE ❌
+
+Result: Vulnerable code ALREADY IN PRODUCTION
+```
+
+**Even with GitHub Enterprise ($400k/year)**:
+- ✅ Required Workflows run org-wide
+- ✅ Organization Rulesets enforce policies
+- ❌ **Both workflows run in PARALLEL**
+- ❌ **No way to block deployment until security passes**
+
+**Why**: GitHub Actions has no cross-workflow dependency mechanism.
+
+**Harness**: Sequential enforcement (Security stage BEFORE Deploy stage).
+
+---
+
+#### ❌ Configuration Sprawl
+
+- 1000 repos × 3 environments = **3,000 separate configurations**
 - No centralized management
 - GitHub Environments are per-repo only
 - Configuration drift inevitable
+- **Time cost**: 250 hours initial setup
 
-**Custom Engineering**:
-- Deployment gates: 4 weeks
-- DORA metrics: 3 weeks
-- Multi-service orchestration: 6 weeks
-- Policy enforcement: 3 weeks
-- **Total: 17 weeks of custom development**
+---
 
-**Operational Burden**:
-- 24 tools that must work together
-- 9 critical path services (any failure blocks deployments)
-- 2-4 FTE just to keep it running
+#### ❌ Custom Engineering Required
 
-**Missing Capabilities**:
+To match dedicated CD platforms, you must build:
+
+| Service | Purpose | Build Time | Ongoing Effort |
+|---------|---------|------------|----------------|
+| Deployment Gate Service | Metrics-based verification | 4 weeks | 4-8 hrs/week |
+| DORA Metrics Collector | Track deployment metrics | 3 weeks | 2-4 hrs/week |
+| Policy Validation Service | Centralized policy enforcement | 3 weeks | 2-4 hrs/week |
+| Multi-Service Orchestrator | Deploy services in correct order | 6 weeks | 8-12 hrs/week |
+
+**Total: 17 weeks initial + 16-28 hrs/week ongoing**
+
+---
+
+#### ❌ Operational Burden
+
+- **24 tools** that must work together
+- **9 critical path services** (any failure blocks deployments)
+- **2-4 FTE** just to keep it running
+- **16-24 hrs/week** handling failures and drift
+
+---
+
+#### ❌ Missing Capabilities
+
 - ❌ One-click rollback
 - ❌ Deployment verification with ML
 - ❌ Centralized configuration
 - ❌ Multi-service orchestration
 - ❌ Deployment observability
-- ❌ **Architectural security enforcement**
-
-**Recommendation**: ❌ **Don't build custom CD at 1000+ repo scale**
+- ❌ Template locking (architectural security)
 
 ---
 
 ## Cost Comparison
 
-### GitHub Enterprise (All Features Enabled)
+### GitHub-Native with Enterprise (5 years)
 ```
-GitHub Enterprise Cloud: ~$400k/year (1000 users @ $21/user + Advanced Security)
-Custom Services (6): $200k build + $100k/year maintenance
-Platform Engineers (2-4 FTE): $600k/year
-
-Year 1: $1,477k (build + operate + GitHub Enterprise)
-Years 2-5: $1,092k/year (GitHub + maintenance + engineers)
-
-5-Year Total: $5,845,000
+GitHub Enterprise: $400k/year × 5 = $2,000k
+Custom Services: $200k build + $400k maintenance = $600k
+Platform Engineers (2-4 FTE): $600k/year × 5 = $3,000k
+─────────────────────────────────────────────────────
+Total: $5,600,000
 ```
 
-### Hybrid (GitHub CI + Harness CD)
+### Hybrid (GitHub CI + Harness CD) (5 years)
 ```
-GitHub Team: $92k/year (1000 users @ $4/user for CI only)
-Harness CD: $400k/year (enterprise license)
-Platform Engineers (0.5-1 FTE): $250k/year
+GitHub Team (CI only): $92k/year × 5 = $460k
+Harness CD: $400k/year × 5 = $2,000k
+Platform Engineers (0.5-1 FTE): $250k/year × 5 = $1,250k
+─────────────────────────────────────────────────────
+Total: $3,710,000
 
-Year 1: $925k (implement)
-Years 2-5: $745k/year (GitHub + Harness + engineers)
-
-5-Year Total: $3,905,000
-
-💰 Savings: $1,940,000 (33%)
+💰 Savings: $1,890,000 (34%)
 ```
 
-> **Note**: GitHub Enterprise pricing includes ALL features (Required Workflows, Advanced Security, Rulesets).
-> **Even with the most expensive GitHub tier, total cost is higher due to custom engineering needs.**
-
-**[See detailed cost breakdown](docs/OPERATIONAL_BURDEN.md#total-cost-of-ownership-tco-analysis)**
+**Lower cost, less operational burden, better security enforcement.**
 
 ---
 
 ## Documentation
 
-### 🎯 Essential Reading
+### 📖 Essential Reading (7 Documents)
 
-| Document | What It Covers | Read Time |
-|----------|----------------|-----------|
-| **[Quick Start Demo](docs/QUICK_START_DEMO.md)** | **30-min complete demonstration: GitHub vs Harness** | 30 min |
-| **[Essential Reading Guide](docs/ESSENTIAL_READING.md)** | **Navigate all docs by role and goal** | 5 min |
-| **[Demonstration Flow](docs/DEMONSTRATION_FLOW.md)** | **How to present this to stakeholders** | 15 min |
-| **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)** | Complete analysis and recommendations | 15 min |
+| Document | What It Covers | Audience | Time |
+|----------|----------------|----------|------|
+| **[Quick Start Demo](docs/QUICK_START_DEMO.md)** | Complete 30-min demonstration | Everyone | 30 min |
+| **[Demonstration Flow](docs/DEMONSTRATION_FLOW.md)** | How to present (4 formats with scripts) | Presenters | 15 min |
+| **[Technical Analysis](docs/TECHNICAL_ANALYSIS.md)** | Architecture, costs, operational burden | Engineers | 45 min |
+| **[GitHub Analysis](docs/GITHUB_ANALYSIS.md)** | Gaps, Enterprise features, workarounds | Engineers/Security | 60 min |
+| **[Harness Comparison](docs/HARNESS_COMPARISON.md)** | Side-by-side comparison | Engineers | 30 min |
+| **[Hands-On Guide](docs/HANDS_ON_GUIDE.md)** | Watch it run, try it yourself | Developers | 60 min |
+| **[Accuracy Verification](docs/ACCURACY_VERIFICATION.md)** | All claims verified with citations | Everyone | 10 min |
 
-### 📖 Getting Started
+**That's it. 7 documents.** Everything else has been consolidated.
 
-| Document | What It Covers | Read Time |
-|----------|----------------|-----------|
-| **[🚀 Live Deployment](docs/LIVE_DEPLOYMENT.md)** | **Watch real CI/CD run on every push** | 5 min |
-| **[Tutorial Walkthrough](docs/TUTORIAL_WALKTHROUGH.md)** | Hands-on: add a feature and run the pipeline | 60 min |
-| **[Day in the Life](docs/DAY_IN_THE_LIFE.md)** | Follow a developer through a full deployment | 20 min |
+---
 
-### 🔧 Implementation Details
+## The Critical Gap Explained
 
-| Document | What It Covers |
-|----------|----------------|
-| **[GitHub Enterprise Setup](docs/GITHUB_ENTERPRISE_SETUP.md)** | **How to enable ALL Enterprise features (with actual configs)** |
-| **[Architecture](docs/ARCHITECTURE.md)** | System design, integration points, deployment flows |
-| **[Tool Inventory](docs/TOOL_INVENTORY.md)** | All 24 tools, costs, and operational burden |
-| **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** | What breaks, TCO analysis, day-to-day reality |
-| **[Getting Started](docs/GETTING_STARTED.md)** | Set up the full environment locally |
-| **[Onboarding Guide](docs/ONBOARDING.md)** | How to onboard a new service |
+### GitHub's Architectural Limitation
 
-### 🆚 Comparisons
+**The problem**: Workflow files live IN developer repositories.
 
-| Document | What It Covers |
-|----------|----------------|
-| **[⚠️ GitHub Gaps (REAL)](docs/GITHUB_GAPS_REAL.md)** | **Obvious shortcomings in the running pipeline** |
-| **[💡 Why Templates Fail](docs/WHY_GITHUB_TEMPLATES_FAIL.md)** | **Proof: GitHub "templates" ≠ Harness templates** |
-| **[🔴 Developer vs Platform](docs/DEVELOPER_VS_PLATFORM.md)** | **CRITICAL: Can developers bypass security? (YES in GitHub)** |
-| **[GitHub Workarounds](docs/GITHUB_WORKAROUNDS.md)** | How to solve each governance gap (with code examples) |
-| **[Harness Comparison](docs/HARNESS_COMPARISON.md)** | Side-by-side: architecture, features, configs |
-| **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** | Missing features vs dedicated CD platforms |
+**Impact**:
+```
+repo-1/.github/workflows/deploy.yml  (developer can edit)
+repo-2/.github/workflows/deploy.yml  (developer can edit)
+...
+repo-1000/.github/workflows/deploy.yml  (developer can edit)
+```
 
-### ✅ Validation
+**Even with GitHub Enterprise features**:
+- ✅ **CODEOWNERS**: Requires platform team approval
+  - ❌ But: Manual review doesn't scale to 1000 repos
+  - ❌ But: Subtle bypasses slip through (continue-on-error: true)
+- ✅ **Required Workflows**: Org-wide security scanning
+  - ❌ But: Runs in PARALLEL with developer's workflow
+  - ❌ But: Cannot block deployment
+  - ❌ But: Scans filesystem, not Docker images
+- ✅ **Organization Rulesets**: Centralized policies
+  - ❌ But: Enforces pre-merge checks, not deployment-time policies
+  - ❌ But: Cannot prevent parallel execution
 
-| Document | What It Covers |
-|----------|----------------|
-| **[Accuracy Verification](docs/ACCURACY_VERIFICATION.md)** | All claims verified with citations |
+**See the actual configurations**: We implemented ALL GitHub Enterprise features in this repo.
+
+---
+
+### Harness's Architectural Solution
+
+**Templates live OUTSIDE developer repos**:
+```yaml
+# Platform repo (locked - developers cannot access)
+template:
+  name: Production Deployment
+  stages:
+    - stage:
+        name: Security
+        locked: true  # ← Developers CANNOT modify
+        spec:
+          imageScan:
+            tool: Trivy
+            scanImage: true  # ← Scans actual Docker image
+            failOnCVE: true
+            waitForResults: true  # ← Blocks next stage
+    - stage:
+        name: Deploy
+        dependsOn: [Security]  # ← Sequential enforcement
+        locked: true
+
+# Developer repo (references only)
+pipeline:
+  template: Production Deployment  # ← Cannot modify
+  variables:
+    service: user-service
+```
+
+**Key differences**:
+- Developers reference templates, cannot edit
+- Sequential stages (deploy waits for security)
+- Scans Docker images (not just source code)
+- No code review needed (impossible to bypass)
+- Scales to unlimited repos
+
+---
+
+## Recommendations by Scale
+
+### For < 50 Repositories
+✅ **GitHub-native is viable**
+
+**Why**: Operational burden is manageable, manual review scales.
+
+---
+
+### For 50-500 Repositories
+⚠️ **Evaluate based on your resources**
+
+**Questions**:
+- Do you have 2-4 FTE for platform engineering?
+- Can you build and maintain 6 custom services?
+- Is $1.1M/year operational cost acceptable?
+
+**If NO**: Consider hybrid approach.
+
+---
+
+### For 1000+ Repositories
+✅ **Hybrid approach strongly recommended**
+
+**Recommended architecture**:
+```
+CI: GitHub Actions (excellent, keep using it)
+  ├─ Build
+  ├─ Test
+  ├─ Security scan
+  └─ Push to registry
+
+CD: Harness (purpose-built for scale)
+  ├─ Deploy (with locked templates)
+  ├─ Verify (ML-based)
+  ├─ Rollback (one-click)
+  └─ Orchestrate (multi-service)
+```
+
+**Why**:
+- Lower total cost ($1.9M savings over 5 years)
+- Less operational burden (0.5-1 FTE vs 2-4 FTE)
+- Faster time-to-value (2-4 weeks vs 17 weeks)
+- Better security enforcement (architectural vs policy-based)
+- Missing features come out-of-the-box
+
+---
+
+## Repository Contents
+
+```
+githubexperiment/
+├── services/                    # 3 production microservices
+│   ├── user-service/           # Node.js (Express + Prometheus)
+│   ├── payment-service/        # Go (with metrics)
+│   └── notification-service/   # Python (Flask)
+│
+├── .github/workflows/          # 6 real CI/CD workflows (RUNS LIVE)
+│   ├── ci-user-service.yml
+│   ├── cd-user-service.yml
+│   ├── ci-payment-service.yml
+│   ├── cd-payment-service.yml
+│   ├── ci-notification-service.yml
+│   └── cd-notification-service.yml
+│
+├── platform/                    # Platform team's golden path
+│   ├── .github/workflows/      # Required Workflows (GitHub Enterprise)
+│   ├── policies/               # OPA policies
+│   └── rulesets/               # Organization Rulesets
+│
+└── docs/                        # 7 essential documents
+    ├── QUICK_START_DEMO.md
+    ├── DEMONSTRATION_FLOW.md
+    ├── TECHNICAL_ANALYSIS.md
+    ├── GITHUB_ANALYSIS.md
+    ├── HARNESS_COMPARISON.md
+    ├── HANDS_ON_GUIDE.md
+    └── ACCURACY_VERIFICATION.md
+```
 
 ---
 
@@ -263,92 +385,17 @@ Years 2-5: $745k/year (GitHub + Harness + engineers)
 This implementation exposes:
 
 1. **Integration Hell**: 24 tools that must work together
-2. **Custom Engineering**: 6 services you must build and maintain
+2. **Custom Engineering**: 6 services you must build and maintain (17 weeks)
 3. **Configuration Sprawl**: 3,000 environment configs (no centralization)
-4. **Operational Burden**: 2-4 FTE just to keep it running
-5. **Missing Capabilities**: One-click rollback, ML verification, deployment orchestration
+4. **Operational Burden**: 2-4 FTE just to keep it running (16-24 hrs/week)
+5. **Missing Capabilities**: One-click rollback, ML verification, orchestration
+6. **Parallel Execution Gap**: Cannot enforce "deploy ONLY IF security passes"
 
 **We're not saying GitHub is bad.**
 
 **We're exposing what it truly costs to make it work at enterprise scale.**
 
 Sometimes the hardest thing to admit is: **someone else solved this problem better.**
-
----
-
-## Repository Contents
-
-<details>
-<summary>📂 <strong>View repository structure</strong></summary>
-
-```
-githubexperiment/
-├── services/                    # Sample microservices
-│   ├── user-service/           # Node.js (Express + Prometheus)
-│   ├── payment-service/        # Go (with metrics)
-│   └── notification-service/   # Python (Flask)
-│
-├── platform/                    # Platform team's golden path
-│   ├── .github/
-│   │   ├── workflows/          # Reusable workflows
-│   │   │   ├── ci-build-scan.yml         # CI with security scanning
-│   │   │   ├── cd-deploy-direct.yml      # Direct K8s deployment
-│   │   │   └── cd-deploy-gitops.yml      # GitOps deployment
-│   │   └── actions/            # Composite actions
-│   │       ├── scan-and-sign/            # CVE scanning + Cosign
-│   │       └── validate-policies/        # OPA policy validation
-│   ├── policies/               # OPA policies
-│   │   ├── docker/             # Dockerfile security
-│   │   ├── kubernetes/         # K8s security policies
-│   │   └── sbom/               # Vulnerability policies
-│   └── rulesets/               # GitHub organization rulesets
-│       └── production-branch-protection.json
-│
-├── gitops/                      # GitOps repository
-│   └── apps/prod/user-service/
-│       └── rollout.yaml        # Argo Rollouts canary config
-│
-├── governance/                  # Custom services (must build)
-│   └── metrics-collector/      # DORA metrics system design
-│
-└── docs/                        # Comprehensive documentation
-    ├── EXECUTIVE_SUMMARY.md    # Complete analysis
-    ├── TUTORIAL_WALKTHROUGH.md # Hands-on tutorial
-    ├── DAY_IN_THE_LIFE.md     # Developer workflow
-    ├── ARCHITECTURE.md         # System design
-    ├── OPERATIONAL_BURDEN.md   # TCO analysis
-    ├── TOOL_INVENTORY.md       # All 24 tools
-    ├── GITHUB_WORKAROUNDS.md   # How to solve each gap
-    ├── HARNESS_COMPARISON.md   # Side-by-side comparison
-    ├── GAPS_ANALYSIS.md        # Missing features
-    ├── GETTING_STARTED.md      # Environment setup
-    ├── ONBOARDING.md          # Service onboarding
-    └── ACCURACY_VERIFICATION.md # Claims verified
-```
-
-</details>
-
----
-
-## Final Recommendation
-
-### For < 50 Repositories
-✅ **GitHub-native is viable** - Operational burden is manageable
-
-### For 50-500 Repositories
-⚠️ **Evaluate based on your resources** - Consider custom engineering vs platform cost
-
-### For 1000+ Repositories
-✅ **Hybrid approach strongly recommended**:
-- ✅ **CI**: GitHub Actions (excellent, keep using it)
-- ✅ **CD**: Harness, Spinnaker, or similar (purpose-built for scale)
-
-**Why?**
-- Lower total cost ($1.9M savings over 5 years)
-- Less operational burden (0.5-1 FTE vs 2-4 FTE)
-- Faster time-to-value (2-4 weeks vs 17 weeks)
-- Better developer experience
-- Missing features come out-of-the-box
 
 ---
 
@@ -369,13 +416,24 @@ MIT License - use this as a reference for your own decisions.
 
 ---
 
-## Acknowledgments
+## The Bottom Line
 
-Built to answer: **"Can we build enterprise CI/CD with GitHub-native tooling?"**
+**GitHub can do enterprise CI/CD at 1000+ repo scale.**
 
-**Answer**: Yes, but the **operational cost exceeds a purpose-built platform at scale**.
+**But you'll spend $1.9M MORE over 5 years vs using a purpose-built platform.**
+
+**The gap is operational efficiency, not functionality.**
 
 **Use the right tool for the job.**
+
+---
+
+### Quick Links
+
+- **[Start Here: Quick Demo](docs/QUICK_START_DEMO.md)** - 30-minute complete story
+- **[For Engineers: Technical Analysis](docs/TECHNICAL_ANALYSIS.md)** - Deep dive
+- **[For Presenters: Demonstration Flow](docs/DEMONSTRATION_FLOW.md)** - How to present
+- **[Fork and Watch It Run](https://github.com/gregkroon/githubexample/actions)** - See it yourself
 
 ---
 
