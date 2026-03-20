@@ -1,0 +1,116 @@
+# Service-specific CI/CD workflow
+# This is what lives in each of the 1000+ service repositories
+#
+# CRITICAL: This workflow MUST use platform team's reusable workflows
+# Version pinning ensures controlled rollout of workflow changes
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# Minimal permissions - inherited from reusable workflows
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================================
+  # CI: Build, test, scan, sign
+  # ============================================================================
+  ci:
+    name: CI Build & Scan
+    uses: yourorg/platform/.github/workflows/ci-build-scan.yml@v2.3.0
+    with:
+      service-name: user-service
+      dockerfile-path: ./Dockerfile
+      language: nodejs
+      enable-codeql: true
+      severity-threshold: high
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      id-token: write
+    secrets: inherit
+
+  # ============================================================================
+  # CD: Deploy to dev (auto-deploy on main branch)
+  # ============================================================================
+  deploy-dev:
+    name: Deploy to Dev
+    needs: ci
+    if: github.ref == 'refs/heads/main'
+
+    # OPTION A: Direct deployment
+    uses: yourorg/platform/.github/workflows/cd-deploy-direct.yml@v2.3.0
+    with:
+      service-name: user-service
+      environment: dev
+      image-digest: ${{ needs.ci.outputs.image-digest }}
+      image-tag: ${{ needs.ci.outputs.image-tag }}
+      kubernetes-namespace: dev
+      deployment-strategy: rolling
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+
+    # OPTION B: GitOps deployment (choose one)
+    # uses: yourorg/platform/.github/workflows/cd-deploy-gitops.yml@v2.3.0
+    # with:
+    #   service-name: user-service
+    #   environment: dev
+    #   image-digest: ${{ needs.ci.outputs.image-digest }}
+    #   image-tag: ${{ needs.ci.outputs.image-tag }}
+    #   gitops-repo: yourorg/gitops
+    #   progressive-delivery: false
+    # permissions:
+    #   contents: read
+    #   id-token: write
+    # secrets: inherit
+
+  # ============================================================================
+  # CD: Deploy to staging (requires approval)
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [ci, deploy-dev]
+    if: github.ref == 'refs/heads/main'
+
+    uses: yourorg/platform/.github/workflows/cd-deploy-direct.yml@v2.3.0
+    with:
+      service-name: user-service
+      environment: staging
+      image-digest: ${{ needs.ci.outputs.image-digest }}
+      image-tag: ${{ needs.ci.outputs.image-tag }}
+      kubernetes-namespace: staging
+      deployment-strategy: rolling
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+
+  # ============================================================================
+  # CD: Deploy to production (requires 2 approvals + business hours)
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production
+    needs: [ci, deploy-staging]
+    if: github.ref == 'refs/heads/main'
+
+    # GitOps with progressive delivery for production
+    uses: yourorg/platform/.github/workflows/cd-deploy-gitops.yml@v2.3.0
+    with:
+      service-name: user-service
+      environment: production
+      image-digest: ${{ needs.ci.outputs.image-digest }}
+      image-tag: ${{ needs.ci.outputs.image-tag }}
+      gitops-repo: yourorg/gitops
+      progressive-delivery: true  # Canary deployment via Argo Rollouts
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit

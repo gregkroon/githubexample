@@ -1,0 +1,321 @@
+# REUSABLE WORKFLOW: CD Direct Deployment to Kubernetes
+# Version: v2.3.0
+# Owner: Platform Engineering Team
+#
+# Model A: GitHub Actions deploys directly to Kubernetes
+# Uses OIDC for authentication (no long-lived credentials)
+#
+# Usage:
+#   uses: yourorg/platform/.github/workflows/cd-deploy-direct.yml@v2.3.0
+#   with:
+#     service-name: user-service
+#     environment: production
+#     image-digest: sha256:abc123...
+
+name: CD Direct Deployment
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        required: true
+        type: string
+
+      environment:
+        required: true
+        type: string
+        description: 'Target environment: dev, staging, production'
+
+      image-digest:
+        required: true
+        type: string
+        description: 'Container image digest from CI workflow'
+
+      image-tag:
+        required: true
+        type: string
+        description: 'Full image tag'
+
+      kubernetes-namespace:
+        required: false
+        type: string
+        default: 'default'
+
+      deployment-strategy:
+        required: false
+        type: string
+        default: 'rolling'
+        description: 'Deployment strategy: rolling, blue-green, canary'
+
+    secrets:
+      KUBE_CONFIG:
+        required: false
+        description: 'Base64 encoded kubeconfig (prefer OIDC instead)'
+
+permissions:
+  contents: read
+  id-token: write  # For OIDC
+
+jobs:
+  # ============================================================================
+  # JOB 1: Pre-Deployment Validation
+  # ============================================================================
+  pre-deployment:
+    name: Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    # This uses GitHub Environment - configured per repo
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://${{ inputs.service-name }}.${{ inputs.environment }}.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # CRITICAL: Verify image signature before deployment
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Verify image signature
+        run: |
+          echo "Verifying signature for image digest: ${{ inputs.image-digest }}"
+          cosign verify \
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}@${{ inputs.image-digest }} \
+            --certificate-identity-regexp=".*" \
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+      # Validate deployment is allowed
+      - name: Check deployment window
+        run: |
+          # For production, only deploy during business hours (example)
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            HOUR=$(date +%H)
+            DAY=$(date +%u)
+
+            if [ $DAY -eq 6 ] || [ $DAY -eq 7 ]; then
+              echo "❌ Production deployments not allowed on weekends"
+              exit 1
+            fi
+
+            if [ $HOUR -lt 9 ] || [ $HOUR -gt 17 ]; then
+              echo "❌ Production deployments only allowed 9 AM - 5 PM"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Deployment window check passed"
+
+      # Call custom webhook for additional validation
+      # This webhook can check:
+      # - Recent incident status
+      # - Deployment freeze status
+      # - Service health metrics
+      - name: Custom deployment gate webhook
+        run: |
+          # In production: Call actual webhook service
+          # webhook_url="https://deployment-gates.example.com/validate"
+          # response=$(curl -X POST $webhook_url \
+          #   -H "Authorization: Bearer ${{ secrets.DEPLOYMENT_GATE_TOKEN }}" \
+          #   -d "{\"service\":\"${{ inputs.service-name }}\",\"environment\":\"${{ inputs.environment }}\"}")
+          #
+          # if [ "$(echo $response | jq -r '.approved')" != "true" ]; then
+          #   echo "❌ Deployment gate rejected: $(echo $response | jq -r '.reason')"
+          #   exit 1
+          # fi
+
+          echo "✅ Custom deployment gates passed (simulated)"
+
+  # ============================================================================
+  # JOB 2: Deploy to Kubernetes
+  # ============================================================================
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: pre-deployment
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://${{ inputs.service-name }}.${{ inputs.environment }}.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # OPTION 1: OIDC-based authentication (RECOMMENDED)
+      # For GKE:
+      - name: Authenticate to Google Cloud
+        if: contains(inputs.environment, 'gcp')
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/PROJECT_ID/locations/global/workloadIdentityPools/github/providers/github-provider'
+          service_account: 'github-actions@PROJECT_ID.iam.gserviceaccount.com'
+
+      - name: Get GKE credentials
+        if: contains(inputs.environment, 'gcp')
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ inputs.environment }}-cluster
+          location: us-central1
+
+      # OPTION 2: Kubeconfig from secrets (NOT RECOMMENDED - shown for completeness)
+      # - name: Configure kubectl
+      #   run: |
+      #     echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
+      #     export KUBECONFIG=kubeconfig
+
+      # Update image in Kubernetes manifests
+      - name: Update manifests
+        run: |
+          cd k8s/
+
+          # Replace image with digest-based reference
+          sed -i "s|image:.*${{ inputs.service-name }}.*|image: ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}@${{ inputs.image-digest }}|g" deployment.yaml
+
+          # Add deployment annotations
+          kubectl annotate deployment ${{ inputs.service-name }} \
+            deployment.kubernetes.io/revision="$(date +%s)" \
+            github.com/workflow-run="${{ github.run_id }}" \
+            github.com/commit="${{ github.sha }}" \
+            --overwrite \
+            --dry-run=client -o yaml >> deployment.yaml
+
+      # Apply Kubernetes manifests
+      - name: Deploy to Kubernetes
+        run: |
+          cd k8s/
+
+          if [ "${{ inputs.deployment-strategy }}" == "rolling" ]; then
+            kubectl apply -f . -n ${{ inputs.kubernetes-namespace }}
+            kubectl rollout status deployment/${{ inputs.service-name }} \
+              -n ${{ inputs.kubernetes-namespace }} \
+              --timeout=5m
+          else
+            echo "Other deployment strategies (blue-green, canary) require additional tooling"
+            echo "See Argo Rollouts or Flagger implementation"
+            exit 1
+          fi
+
+      # Verify deployment
+      - name: Verify deployment
+        run: |
+          # Check if pods are running
+          kubectl get pods -l app=${{ inputs.service-name }} -n ${{ inputs.kubernetes-namespace }}
+
+          # Check if new image is deployed
+          DEPLOYED_IMAGE=$(kubectl get deployment ${{ inputs.service-name }} \
+            -n ${{ inputs.kubernetes-namespace }} \
+            -o jsonpath='{.spec.template.spec.containers[0].image}')
+
+          echo "Deployed image: $DEPLOYED_IMAGE"
+          if [[ "$DEPLOYED_IMAGE" != *"${{ inputs.image-digest }}"* ]]; then
+            echo "❌ Deployment failed: image mismatch"
+            exit 1
+          fi
+
+          echo "✅ Deployment verified"
+
+      - name: Deployment summary
+        run: |
+          echo "# Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Service**: ${{ inputs.service-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Image Digest**: \`${{ inputs.image-digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Deployment Time**: $(date)" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # JOB 3: Post-Deployment Verification
+  # ============================================================================
+  verify:
+    name: Post-Deployment Verification
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+      - name: Wait for stabilization
+        run: sleep 60
+
+      # Health check
+      - name: Health check
+        run: |
+          # In production: Call actual service health endpoint
+          # response=$(curl -f https://${{ inputs.service-name }}.${{ inputs.environment }}.example.com/health)
+          # if [ $? -ne 0 ]; then
+          #   echo "❌ Health check failed"
+          #   exit 1
+          # fi
+
+          echo "✅ Health check passed (simulated)"
+
+      # Metrics-based verification
+      - name: Continuous verification
+        run: |
+          # In production: Query Prometheus/Datadog for metrics
+          # - Error rate
+          # - Latency p99
+          # - Throughput
+          #
+          # If metrics degrade compared to baseline: trigger rollback
+
+          echo "⏳ Monitoring metrics for 5 minutes..."
+          # sleep 300
+
+          # error_rate=$(curl "prometheus.example.com/api/v1/query?query=rate(http_requests_total{status=~\"5..\",service=\"${{ inputs.service-name }}\"}[5m])")
+          #
+          # if [ "$error_rate" -gt "0.01" ]; then
+          #   echo "❌ Error rate too high: $error_rate"
+          #   exit 1
+          # fi
+
+          echo "✅ Continuous verification passed (simulated)"
+
+      # Report to DORA metrics collector
+      - name: Report deployment metrics
+        if: always()
+        run: |
+          # Call DORA metrics collector API
+          # curl -X POST https://dora-metrics.example.com/deployments \
+          #   -H "Content-Type: application/json" \
+          #   -d "{
+          #     \"service\": \"${{ inputs.service-name }}\",
+          #     \"environment\": \"${{ inputs.environment }}\",
+          #     \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+          #     \"commit\": \"${{ github.sha }}\",
+          #     \"status\": \"success\",
+          #     \"workflow_run_id\": \"${{ github.run_id }}\"
+          #   }"
+
+          echo "📊 Deployment metrics reported (simulated)"
+
+  # ============================================================================
+  # JOB 4: Rollback on Failure
+  # ============================================================================
+  rollback:
+    name: Rollback
+    runs-on: ubuntu-latest
+    needs: [deploy, verify]
+    if: failure()
+
+    steps:
+      - name: Rollback deployment
+        run: |
+          echo "🚨 Verification failed - initiating rollback"
+
+          # kubectl rollout undo deployment/${{ inputs.service-name }} \
+          #   -n ${{ inputs.kubernetes-namespace }}
+
+          # kubectl rollout status deployment/${{ inputs.service-name }} \
+          #   -n ${{ inputs.kubernetes-namespace }}
+
+          echo "⏪ Rollback completed (simulated)"
+
+      - name: Notify team
+        run: |
+          echo "🚨 DEPLOYMENT ROLLBACK 🚨" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Service: ${{ inputs.service-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "Reason: Post-deployment verification failed" >> $GITHUB_STEP_SUMMARY
+
+          # In production: Send to Slack/PagerDuty

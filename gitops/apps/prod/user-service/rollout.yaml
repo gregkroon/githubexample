@@ -1,0 +1,271 @@
+# Argo Rollouts: Progressive Delivery for user-service
+# Replaces standard Deployment with Rollout for canary/blue-green deployments
+# Requires: Argo Rollouts controller installed in cluster
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: user-service
+  namespace: production
+  labels:
+    app: user-service
+spec:
+  replicas: 10
+
+  # Strategy: Canary with automated promotion
+  strategy:
+    canary:
+      # Canary Service (receives canary traffic)
+      canaryService: user-service-canary
+
+      # Stable Service (receives stable traffic)
+      stableService: user-service-stable
+
+      # Traffic management via Istio/Nginx/ALB
+      trafficRouting:
+        istio:
+          virtualService:
+            name: user-service-vsvc
+            routes:
+              - primary
+
+      # Canary steps
+      steps:
+        # Step 1: Deploy canary, route 10% traffic
+        - setWeight: 10
+        - pause:
+            duration: 5m  # Observe for 5 minutes
+
+        # Step 2: Run analysis (query Prometheus)
+        - analysis:
+            templates:
+              - templateName: error-rate-analysis
+              - templateName: latency-analysis
+            args:
+              - name: service-name
+                value: user-service
+
+        # Step 3: If analysis passes, increase to 25%
+        - setWeight: 25
+        - pause:
+            duration: 10m
+
+        # Step 4: Run analysis again
+        - analysis:
+            templates:
+              - templateName: error-rate-analysis
+              - templateName: latency-analysis
+
+        # Step 5: Increase to 50%
+        - setWeight: 50
+        - pause:
+            duration: 10m
+
+        # Step 6: Final analysis before full rollout
+        - analysis:
+            templates:
+              - templateName: error-rate-analysis
+              - templateName: latency-analysis
+
+        # Step 7: If all passes, promote to 100%
+        - setWeight: 100
+
+      # Automatic rollback if analysis fails
+      analysis:
+        successfulRunHistoryLimit: 3
+        unsuccessfulRunHistoryLimit: 3
+
+  # Revision history
+  revisionHistoryLimit: 5
+
+  # Pod template (same as Deployment)
+  selector:
+    matchLabels:
+      app: user-service
+
+  template:
+    metadata:
+      labels:
+        app: user-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+
+    spec:
+      serviceAccountName: user-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: user-service
+          image: ghcr.io/yourorg/user-service:latest  # Updated by GitOps workflow
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+
+          env:
+            - name: PORT
+              value: "3000"
+            - name: VERSION
+              value: "1.0.0"
+            - name: NODE_ENV
+              value: production
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+# AnalysisTemplate: Error Rate Check
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: error-rate-analysis
+  namespace: production
+spec:
+  args:
+    - name: service-name
+
+  metrics:
+    - name: error-rate
+      interval: 1m
+      successCondition: result < 0.05  # Less than 5% error rate
+      failureLimit: 3
+
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            sum(rate(http_requests_total{
+              service="{{args.service-name}}",
+              status_code=~"5.."
+            }[5m])) /
+            sum(rate(http_requests_total{
+              service="{{args.service-name}}"
+            }[5m]))
+
+---
+# AnalysisTemplate: Latency Check
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: latency-analysis
+  namespace: production
+spec:
+  args:
+    - name: service-name
+
+  metrics:
+    - name: p99-latency
+      interval: 1m
+      successCondition: result < 500  # Less than 500ms p99
+      failureLimit: 3
+
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_seconds_bucket{
+                service="{{args.service-name}}"
+              }[5m])) by (le)
+            ) * 1000
+
+---
+# Services for canary deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service-stable
+  namespace: production
+  labels:
+    app: user-service
+spec:
+  type: ClusterIP
+  selector:
+    app: user-service
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: http
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service-canary
+  namespace: production
+  labels:
+    app: user-service
+spec:
+  type: ClusterIP
+  selector:
+    app: user-service
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: http
+
+---
+# Istio VirtualService for traffic splitting
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-service-vsvc
+  namespace: production
+spec:
+  hosts:
+    - user-service.production.svc.cluster.local
+  http:
+    - name: primary
+      route:
+        - destination:
+            host: user-service-stable
+          weight: 100
+        - destination:
+            host: user-service-canary
+          weight: 0  # Argo Rollouts will adjust this

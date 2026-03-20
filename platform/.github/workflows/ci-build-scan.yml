@@ -1,0 +1,306 @@
+# REUSABLE WORKFLOW: CI Build & Security Scanning
+# Version: v2.3.0
+# Owner: Platform Engineering Team
+#
+# This is THE golden path workflow that all 1000+ repos must use
+# WARNING: Changes to this file impact every service in production
+#
+# Usage in service repos:
+#   uses: yourorg/platform/.github/workflows/ci-build-scan.yml@v2.3.0
+#   with:
+#     service-name: user-service
+#     dockerfile-path: ./Dockerfile
+
+name: CI Build & Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        required: true
+        type: string
+        description: 'Name of the service (e.g., user-service)'
+
+      dockerfile-path:
+        required: false
+        type: string
+        default: './Dockerfile'
+        description: 'Path to Dockerfile'
+
+      language:
+        required: false
+        type: string
+        default: 'auto'
+        description: 'Primary language: nodejs, go, python, auto'
+
+      enable-codeql:
+        required: false
+        type: boolean
+        default: true
+        description: 'Enable CodeQL SAST scanning'
+
+      severity-threshold:
+        required: false
+        type: string
+        default: 'high'
+        description: 'Fail on vulnerabilities of this severity or higher'
+
+    outputs:
+      image-digest:
+        description: 'Container image digest'
+        value: ${{ jobs.build.outputs.image-digest }}
+
+      image-tag:
+        description: 'Full image tag'
+        value: ${{ jobs.build.outputs.image-tag }}
+
+# CRITICAL: Limit permissions (principle of least privilege)
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write  # For OIDC and Cosign signing
+
+jobs:
+  # ============================================================================
+  # JOB 1: Code Quality & SAST
+  # ============================================================================
+  code-quality:
+    name: Code Quality & SAST
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # CodeQL SAST scanning
+      - name: Initialize CodeQL
+        if: inputs.enable-codeql
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ inputs.language }}
+
+      - name: Autobuild
+        if: inputs.enable-codeql
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        if: inputs.enable-codeql
+        uses: github/codeql-action/analyze@v3
+
+      # Semgrep SAST (additional coverage)
+      - name: Semgrep Scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+
+      # Dependency scanning
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: ${{ inputs.severity-threshold }}
+
+  # ============================================================================
+  # JOB 2: Build, Scan, Sign Container
+  # ============================================================================
+  build:
+    name: Build & Scan Container
+    runs-on: ubuntu-latest
+    needs: code-quality
+
+    outputs:
+      image-digest: ${{ steps.build-push.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Setup build tools
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # OIDC login (no long-lived credentials!)
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Generate image tags
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Build and push image
+      - name: Build and push image
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ inputs.dockerfile-path }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true  # SLSA provenance
+          sbom: true        # SBOM generation
+
+      # Container vulnerability scanning with Trivy
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}@${{ steps.build-push.outputs.digest }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      # Container scanning with Grype (alternative scanner)
+      - name: Run Grype vulnerability scanner
+        uses: anchore/scan-action@v3
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}@${{ steps.build-push.outputs.digest }}
+          fail-build: true
+          severity-cutoff: ${{ inputs.severity-threshold }}
+
+      # Generate SBOM with Syft
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}@${{ steps.build-push.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ inputs.service-name }}
+          path: sbom.spdx.json
+
+      # Install Cosign for signing
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Sign the container image (keyless signing)
+      - name: Sign container image
+        run: |
+          cosign sign --yes \
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}@${{ steps.build-push.outputs.digest }}
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+      # Sign the SBOM
+      - name: Sign SBOM
+        run: |
+          cosign attach sbom --sbom sbom.spdx.json \
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}@${{ steps.build-push.outputs.digest }}
+          cosign sign --yes \
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}:sha256-$(sha256sum sbom.spdx.json | cut -d' ' -f1).sbom
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+  # ============================================================================
+  # JOB 3: Policy Validation (OPA/Conftest)
+  # ============================================================================
+  policy-validation:
+    name: Policy Validation
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout platform policies
+        uses: actions/checkout@v4
+        with:
+          repository: yourorg/platform
+          path: platform
+          ref: main
+
+      # Install Conftest
+      - name: Install Conftest
+        run: |
+          wget https://github.com/open-policy-agent/conftest/releases/download/v0.48.0/conftest_0.48.0_Linux_x86_64.tar.gz
+          tar xzf conftest_0.48.0_Linux_x86_64.tar.gz
+          sudo mv conftest /usr/local/bin/
+
+      # Validate Dockerfile against policies
+      - name: Validate Dockerfile
+        run: |
+          conftest test ${{ inputs.dockerfile-path }} \
+            --policy platform/policies/docker \
+            --namespace docker
+
+      # Validate Kubernetes manifests
+      - name: Validate Kubernetes manifests
+        if: hashFiles('k8s/*.yaml') != ''
+        run: |
+          conftest test k8s/*.yaml \
+            --policy platform/policies/kubernetes \
+            --namespace kubernetes \
+            --all-namespaces
+
+      # Download SBOM from previous job
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-${{ inputs.service-name }}
+
+      # Validate SBOM has no critical vulnerabilities
+      - name: Validate SBOM policy
+        run: |
+          conftest test sbom.spdx.json \
+            --policy platform/policies/sbom \
+            --namespace sbom
+
+      # CRITICAL: Verify image signature before allowing deployment
+      - name: Verify image signature
+        run: |
+          cosign verify \
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service-name }}@${{ needs.build.outputs.image-digest }} \
+            --certificate-identity-regexp=".*" \
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+  # ============================================================================
+  # JOB 4: Deployment Readiness Report
+  # ============================================================================
+  deployment-readiness:
+    name: Deployment Readiness
+    runs-on: ubuntu-latest
+    needs: [code-quality, build, policy-validation]
+    if: success()
+
+    steps:
+      - name: Generate deployment report
+        run: |
+          echo "# Deployment Readiness Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Service**: ${{ inputs.service-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Image Digest**: \`${{ needs.build.outputs.image-digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All security scans passed**" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Image signed with Cosign**" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Policy validation passed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 **Ready for deployment**" >> $GITHUB_STEP_SUMMARY
