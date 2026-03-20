@@ -256,6 +256,22 @@ This implementation exposes:
 
 ## Quick Start
 
+### 👨‍💻 Want to See the Developer Experience? (Most Popular)
+
+**[📖 Day in the Life](docs/DAY_IN_THE_LIFE.md)** - Complete walkthrough: code → PR → production (20 min read)
+
+Follow Sarah (a backend developer) as she:
+- Makes a code change and creates a PR
+- Navigates 9 security scans and policy checks
+- Gets code reviewed and merged
+- Deploys through 3 environments (dev → staging → prod)
+- Experiences 17 security/compliance gates
+- Waits for approvals and canary rollouts
+
+**See exactly what developers experience with all the governance in place.**
+
+---
+
 ### 🚀 Want to Actually Use This? (Hands-On)
 
 **[📖 Getting Started Guide](docs/GETTING_STARTED.md)** - Step-by-step hands-on tutorial (2-4 hours)
@@ -275,12 +291,13 @@ Experience the complexity firsthand by:
 
 Start with the **[Executive Summary](docs/EXECUTIVE_SUMMARY.md)**, then:
 
-1. **[Architecture](docs/ARCHITECTURE.md)** - System design and integration points
-2. **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** - What breaks, TCO, day-to-day reality
-3. **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** - Missing features vs dedicated platforms
-4. **[Tool Inventory](docs/TOOL_INVENTORY.md)** - All 24 tools, costs, maintenance
-5. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment config at scale
-6. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer onboarding process
+1. **[Day in the Life](docs/DAY_IN_THE_LIFE.md)** - ⭐ Complete developer workflow: code → PR → production (with all security gates)
+2. **[Architecture](docs/ARCHITECTURE.md)** - System design and integration points
+3. **[Operational Burden](docs/OPERATIONAL_BURDEN.md)** - What breaks, TCO, day-to-day reality
+4. **[Gaps Analysis](docs/GAPS_ANALYSIS.md)** - Missing features vs dedicated platforms
+5. **[Tool Inventory](docs/TOOL_INVENTORY.md)** - All 24 tools, costs, maintenance
+6. **[GitHub Environments](docs/GITHUB_ENVIRONMENTS.md)** - Environment config at scale
+7. **[Onboarding Guide](docs/ONBOARDING.md)** - Developer onboarding process
 
 ---
 
