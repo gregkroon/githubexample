@@ -319,15 +319,22 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`$IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Attaching SBOM to image as signed attestation..." >> $GITHUB_STEP_SUMMARY
+          echo "Validating SBOM format and attaching to image..." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify SBOM is valid JSON
+          if ! jq empty sbom.spdx.json 2>/dev/null; then
+            echo "❌ SBOM is not valid JSON" >> $GITHUB_STEP_SUMMARY
+            cat sbom.spdx.json | head -20
+            exit 1
+          fi
 
           # Attach SBOM to image as a signed attestation
           # Using image digest (not tag) for security
-          # This creates a cryptographic binding between image and SBOM
+          # Using spdxjson predicate type (Cosign-compatible format)
           cosign attest --yes \
             --predicate sbom.spdx.json \
-            --type spdx \
+            --type spdxjson \
             $IMAGE_DIGEST
 
           echo "✅ **SBOM attestation created and signed**" >> $GITHUB_STEP_SUMMARY
@@ -353,8 +360,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Verify the attestation is signed correctly
+          # Using spdxjson type to match what we attached
           cosign verify-attestation \
-            --type spdx \
+            --type spdxjson \
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
             $IMAGE_DIGEST
