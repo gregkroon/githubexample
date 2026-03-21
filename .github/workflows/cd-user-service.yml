@@ -94,11 +94,14 @@ jobs:
           # Verify the SBOM attestation signature using digest
           echo "Verifying SBOM attestation signature..."
 
-          cosign verify-attestation \
+          # Timeout after 2 minutes if hanging (large SBOM output)
+          if timeout 120 cosign verify-attestation \
             --type spdxjson \
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            $IMAGE_DIGEST > attestation.json || {
+            $IMAGE_DIGEST > attestation.json 2>&1; then
+            echo "Verification successful"
+          else
             echo "❌ **DEPLOYMENT BLOCKED**: SBOM attestation verification failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Possible causes:**" >> $GITHUB_STEP_SUMMARY
@@ -106,11 +109,12 @@ jobs:
             echo "- Signature verification failed (tampering detected)" >> $GITHUB_STEP_SUMMARY
             echo "- Certificate identity mismatch" >> $GITHUB_STEP_SUMMARY
             echo "- OIDC token issues" >> $GITHUB_STEP_SUMMARY
+            echo "- Verification timeout (large SBOM)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "⏩ **Proceeding with deployment** (for demo)" >> $GITHUB_STEP_SUMMARY
             echo "   **In production: This would HARD FAIL**" >> $GITHUB_STEP_SUMMARY
             exit 0
-          }
+          fi
 
           echo "✅ **SBOM attestation signature verified**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -332,21 +336,24 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Verify SBOM attestation using digest
-          cosign verify-attestation \
+          # Timeout after 2 minutes (large SBOM can take time)
+          if timeout 120 cosign verify-attestation \
             --type spdxjson \
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            $IMAGE_DIGEST > prod-attestation.json || {
+            $IMAGE_DIGEST > prod-attestation.json 2>&1; then
+            echo "Production SBOM attestation verified"
+          else
             echo "❌ **PRODUCTION DEPLOYMENT BLOCKED**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Failure reason:** SBOM attestation verification failed" >> $GITHUB_STEP_SUMMARY
+            echo "**Failure reason:** SBOM attestation verification failed or timed out" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Production policy:** Zero tolerance for unverified artifacts" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "⏩ **Proceeding with deployment** (demo only)" >> $GITHUB_STEP_SUMMARY
             echo "   **In real production: HARD STOP - no deployment**" >> $GITHUB_STEP_SUMMARY
             exit 0
-          }
+          fi
 
           echo "✅ **SBOM attestation verified for production**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

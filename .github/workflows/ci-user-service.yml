@@ -361,13 +361,18 @@ jobs:
 
           # Verify the attestation is signed correctly
           # Using spdxjson type to match what we attached
-          cosign verify-attestation \
+          # Output can be large (800+ packages), so redirect to file
+          if cosign verify-attestation \
             --type spdxjson \
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            $IMAGE_DIGEST
-
-          echo "✅ **SBOM attestation signature verified**" >> $GITHUB_STEP_SUMMARY
+            $IMAGE_DIGEST > attestation-verify.json 2>&1; then
+            echo "✅ **SBOM attestation signature verified**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **SBOM attestation verification failed**" >> $GITHUB_STEP_SUMMARY
+            echo "See logs for details" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**The complexity gap:**" >> $GITHUB_STEP_SUMMARY
           echo "- Must use image **digest** (not tag) for security" >> $GITHUB_STEP_SUMMARY
