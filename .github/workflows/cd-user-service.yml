@@ -54,75 +54,83 @@ jobs:
         run: |
           kubectl create namespace user-service-dev || true
 
-      - name: Verify SBOM exists (deployment gate)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify SBOM attestation (deployment gate)
         run: |
-          echo "## 🔐 SBOM Verification (Deployment Gate)" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔐 SBOM Attestation Verification (Deployment Gate)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Why we verify attestations:**" >> $GITHUB_STEP_SUMMARY
+          echo "- SBOM could be stored in 3rd party repos (Artifactory, Nexus, S3)" >> $GITHUB_STEP_SUMMARY
+          echo "- Must cryptographically prove SBOM is authentic" >> $GITHUB_STEP_SUMMARY
+          echo "- Signature verifies: identity, integrity, and binding to image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Try to download SBOM from CI workflow
-          # This demonstrates the cross-workflow coordination complexity
+          # Verify the SBOM attestation signature
+          echo "Verifying SBOM attestation signature..."
 
-          CI_RUN_ID="${{ github.event.workflow_run.id }}"
-
-          echo "Attempting to download SBOM from CI workflow run: $CI_RUN_ID"
-
-          # Download artifact from the triggering CI workflow
-          gh run download $CI_RUN_ID --name sbom --dir ./sbom-download || {
-            echo "⚠️ **WARNING**: Could not download SBOM from CI workflow" >> $GITHUB_STEP_SUMMARY
+          cosign verify-attestation \
+            --type spdx \
+            --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+            ghcr.io/${{ github.repository }}/user-service:${{ github.sha }} > attestation.json || {
+            echo "❌ **DEPLOYMENT BLOCKED**: SBOM attestation verification failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Why this is complex:**" >> $GITHUB_STEP_SUMMARY
-            echo "- CD workflow runs separately from CI" >> $GITHUB_STEP_SUMMARY
-            echo "- Must coordinate artifacts across workflows" >> $GITHUB_STEP_SUMMARY
-            echo "- Requires GitHub CLI and proper permissions" >> $GITHUB_STEP_SUMMARY
-            echo "- Artifact retention policies can cause failures" >> $GITHUB_STEP_SUMMARY
+            echo "**Possible causes:**" >> $GITHUB_STEP_SUMMARY
+            echo "- SBOM attestation not attached to image" >> $GITHUB_STEP_SUMMARY
+            echo "- Signature verification failed (tampering detected)" >> $GITHUB_STEP_SUMMARY
+            echo "- Certificate identity mismatch" >> $GITHUB_STEP_SUMMARY
+            echo "- OIDC token issues" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**In production, you'd need:**" >> $GITHUB_STEP_SUMMARY
-            echo "- Centralized artifact storage" >> $GITHUB_STEP_SUMMARY
-            echo "- SBOM attached to image as attestation" >> $GITHUB_STEP_SUMMARY
-            echo "- Or SBOM stored in external registry" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⏩ **Proceeding with deployment** (for demo purposes)" >> $GITHUB_STEP_SUMMARY
-            echo "   In production: This would BLOCK deployment" >> $GITHUB_STEP_SUMMARY
-            exit 0  # Don't fail deployment in demo
+            echo "⏩ **Proceeding with deployment** (for demo)" >> $GITHUB_STEP_SUMMARY
+            echo "   **In production: This would HARD FAIL**" >> $GITHUB_STEP_SUMMARY
+            exit 0
           }
 
-          # If we got the SBOM, validate it
-          if [ -f ./sbom-download/sbom.spdx.json ]; then
-            echo "✅ SBOM artifact found" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **SBOM attestation signature verified**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-            # Install jq for validation
-            sudo apt-get update -qq && sudo apt-get install -y -qq jq > /dev/null 2>&1
+          # Extract and validate SBOM contents
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq > /dev/null 2>&1
 
-            # Quick validation
-            PACKAGE_COUNT=$(jq '.packages | length' ./sbom-download/sbom.spdx.json)
-            echo "**SBOM validated:**" >> $GITHUB_STEP_SUMMARY
-            echo "- Total packages: $PACKAGE_COUNT" >> $GITHUB_STEP_SUMMARY
-            echo "- Format: SPDX JSON" >> $GITHUB_STEP_SUMMARY
-            echo "- Source: CI workflow run #$CI_RUN_ID" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+          cat attestation.json | jq -r '.payload' | base64 -d | jq '.predicate' > sbom-verified.json
 
-            # Check for any high-risk packages (example)
-            echo "**Deployment gate checks:**" >> $GITHUB_STEP_SUMMARY
+          PACKAGE_COUNT=$(jq '.packages | length' sbom-verified.json)
 
-            # Example: Check if SBOM has any packages (basic validation)
-            if [ "$PACKAGE_COUNT" -lt 10 ]; then
-              echo "❌ **FAIL**: SBOM has too few packages ($PACKAGE_COUNT < 10)" >> $GITHUB_STEP_SUMMARY
-              echo "   This might indicate incomplete SBOM generation" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "⏩ **Proceeding anyway** (for demo)" >> $GITHUB_STEP_SUMMARY
-              # exit 1  # Uncomment to actually block
-            else
-              echo "✅ SBOM contains $PACKAGE_COUNT packages (healthy)" >> $GITHUB_STEP_SUMMARY
-            fi
+          echo "**Verified SBOM contents:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Total packages: $PACKAGE_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- Signature: ✅ Valid" >> $GITHUB_STEP_SUMMARY
+          echo "- Bound to image: ✅ Yes (cryptographically)" >> $GITHUB_STEP_SUMMARY
+          echo "- Tamper-proof: ✅ Yes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **Deployment gate PASSED** - SBOM verified" >> $GITHUB_STEP_SUMMARY
+          # Deployment gate check
+          if [ "$PACKAGE_COUNT" -lt 10 ]; then
+            echo "❌ **FAIL**: SBOM incomplete ($PACKAGE_COUNT packages)" >> $GITHUB_STEP_SUMMARY
+            # exit 1
+          else
+            echo "✅ **Deployment gate PASSED**" >> $GITHUB_STEP_SUMMARY
           fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**The complexity gap (40 lines of code):**" >> $GITHUB_STEP_SUMMARY
+          echo "- Install Cosign" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify attestation with certificate matching" >> $GITHUB_STEP_SUMMARY
+          echo "- Extract signed payload from base64" >> $GITHUB_STEP_SUMMARY
+          echo "- Parse and validate SBOM contents" >> $GITHUB_STEP_SUMMARY
+          echo "- Handle verification failures gracefully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**× 1000 services = 40,000 lines across deployment workflows**" >> $GITHUB_STEP_SUMMARY
 
       - name: Create environment-specific config
         env:
@@ -269,62 +277,89 @@ jobs:
         run: |
           kubectl create namespace user-service-prod || true
 
-      - name: Verify SBOM before production deployment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify SBOM attestation for production
         run: |
-          echo "## 🔐 Production SBOM Verification" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔐 Production SBOM Attestation Verification" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**CRITICAL**: Production deployment requires SBOM validation" >> $GITHUB_STEP_SUMMARY
+          echo "**CRITICAL**: Production requires cryptographically verified SBOM" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Why attestation matters for production:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Compliance requirements (SLSA, SSDF)" >> $GITHUB_STEP_SUMMARY
+          echo "- Supply chain security (prove provenance)" >> $GITHUB_STEP_SUMMARY
+          echo "- Legal liability (evidence of due diligence)" >> $GITHUB_STEP_SUMMARY
+          echo "- Audit trail (non-repudiation)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          CI_RUN_ID="${{ github.event.workflow_run.id }}"
-
-          # Download SBOM from CI workflow
-          gh run download $CI_RUN_ID --name sbom --dir ./sbom-prod || {
-            echo "❌ **DEPLOYMENT BLOCKED**: No SBOM found" >> $GITHUB_STEP_SUMMARY
+          # Verify SBOM attestation
+          cosign verify-attestation \
+            --type spdx \
+            --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+            ghcr.io/${{ github.repository }}/user-service:${{ github.sha }} > prod-attestation.json || {
+            echo "❌ **PRODUCTION DEPLOYMENT BLOCKED**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Production policy:** Cannot deploy without validated SBOM" >> $GITHUB_STEP_SUMMARY
+            echo "**Failure reason:** SBOM attestation verification failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**The reality:** Cross-workflow artifact sharing is complex" >> $GITHUB_STEP_SUMMARY
-            echo "- Artifacts expire (90 days default)" >> $GITHUB_STEP_SUMMARY
-            echo "- No built-in artifact verification" >> $GITHUB_STEP_SUMMARY
-            echo "- Must build custom coordination logic" >> $GITHUB_STEP_SUMMARY
+            echo "**Production policy:** Zero tolerance for unverified artifacts" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⏩ **Proceeding with deployment** (for demo)" >> $GITHUB_STEP_SUMMARY
-            echo "   **In real production: This would HARD FAIL**" >> $GITHUB_STEP_SUMMARY
-            exit 0  # Don't block demo
+            echo "⏩ **Proceeding with deployment** (demo only)" >> $GITHUB_STEP_SUMMARY
+            echo "   **In real production: HARD STOP - no deployment**" >> $GITHUB_STEP_SUMMARY
+            exit 0
           }
 
-          if [ -f ./sbom-prod/sbom.spdx.json ]; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq jq > /dev/null 2>&1
+          echo "✅ **SBOM attestation verified for production**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-            PACKAGE_COUNT=$(jq '.packages | length' ./sbom-prod/sbom.spdx.json)
+          # Extract and validate
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq > /dev/null 2>&1
+          cat prod-attestation.json | jq -r '.payload' | base64 -d | jq '.predicate' > prod-sbom.json
 
-            echo "✅ **SBOM validated for production**" >> $GITHUB_STEP_SUMMARY
-            echo "- Packages: $PACKAGE_COUNT" >> $GITHUB_STEP_SUMMARY
-            echo "- CI Run: #$CI_RUN_ID" >> $GITHUB_STEP_SUMMARY
-            echo "- Verified: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+          PACKAGE_COUNT=$(jq '.packages | length' prod-sbom.json)
 
-            # Production-specific checks
-            echo "**Production-specific validations:**" >> $GITHUB_STEP_SUMMARY
+          echo "**Verified SBOM for production:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Packages: $PACKAGE_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- Cryptographic signature: ✅ Valid" >> $GITHUB_STEP_SUMMARY
+          echo "- Image binding: ✅ Verified" >> $GITHUB_STEP_SUMMARY
+          echo "- Verified at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-            # Check for dev dependencies (shouldn't be in production)
-            DEV_DEPS=$(jq -r '.packages[] | select(.name | test("nodemon|jest|eslint"))' ./sbom-prod/sbom.spdx.json | wc -l || echo "0")
+          # Production-specific checks
+          echo "**Production-specific policy checks:**" >> $GITHUB_STEP_SUMMARY
 
-            if [ "$DEV_DEPS" -gt 0 ]; then
-              echo "⚠️ **WARNING**: Found $DEV_DEPS dev dependencies in production image" >> $GITHUB_STEP_SUMMARY
-              echo "   (This increases attack surface)" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "✅ No dev dependencies found (clean production image)" >> $GITHUB_STEP_SUMMARY
-            fi
+          # Check for dev dependencies
+          DEV_DEPS=$(jq -r '.packages[] | select(.name | test("nodemon|jest|eslint|@types"))' prod-sbom.json 2>/dev/null | wc -l || echo "0")
 
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **Production deployment gate PASSED**" >> $GITHUB_STEP_SUMMARY
+          if [ "$DEV_DEPS" -gt 0 ]; then
+            echo "⚠️ **WARNING**: $DEV_DEPS dev dependencies in production" >> $GITHUB_STEP_SUMMARY
+            echo "   (Increases attack surface)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Clean production image (no dev dependencies)" >> $GITHUB_STEP_SUMMARY
           fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Production deployment gate PASSED**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total code for secure SBOM enforcement:**" >> $GITHUB_STEP_SUMMARY
+          echo "- CI: 40 lines (sign and attach attestation)" >> $GITHUB_STEP_SUMMARY
+          echo "- CD Dev: 40 lines (verify attestation)" >> $GITHUB_STEP_SUMMARY
+          echo "- CD Prod: 40 lines (verify attestation)" >> $GITHUB_STEP_SUMMARY
+          echo "- Total: **120 lines just for attestation**" >> $GITHUB_STEP_SUMMARY
+          echo "- Plus: **90 lines for SBOM validation logic**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Grand total: 210 lines for secure SBOM**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**With Harness: 0 lines (config-driven)**" >> $GITHUB_STEP_SUMMARY
 
       - name: Create environment-specific config
         env:

@@ -294,6 +294,63 @@ jobs:
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com
 
+      - name: Download SBOM for attestation
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom
+
+      - name: Attach SBOM as signed attestation
+        run: |
+          echo "## 🔏 SBOM Attestation (Cryptographic Binding)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Attaching SBOM to image as signed attestation..." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Attach SBOM to image as a signed attestation
+          # This creates a cryptographic binding between image and SBOM
+          cosign attest --yes \
+            --predicate sbom.spdx.json \
+            --type spdx \
+            ${{ needs.build.outputs.image-tag }}
+
+          echo "✅ **SBOM attestation created and signed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**What this provides:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SBOM is cryptographically signed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SBOM is bound to image digest" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Tamper detection (any modification breaks signature)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Verifiable chain of custody" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Storage options now available:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Store in external artifact repo (Artifactory, Nexus)" >> $GITHUB_STEP_SUMMARY
+          echo "- Store in S3/cloud storage" >> $GITHUB_STEP_SUMMARY
+          echo "- Share with 3rd parties securely" >> $GITHUB_STEP_SUMMARY
+          echo "- Verification works regardless of storage location" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify SBOM attestation
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Verifying SBOM attestation signature..." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify the attestation is signed correctly
+          cosign verify-attestation \
+            --type spdx \
+            --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+            ${{ needs.build.outputs.image-tag }}
+
+          echo "✅ **SBOM attestation signature verified**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**The complexity gap:**" >> $GITHUB_STEP_SUMMARY
+          echo "- This took **40 lines of custom code**" >> $GITHUB_STEP_SUMMARY
+          echo "- Requires Cosign expertise" >> $GITHUB_STEP_SUMMARY
+          echo "- Requires understanding OIDC keyless signing" >> $GITHUB_STEP_SUMMARY
+          echo "- Must handle certificate identity matching" >> $GITHUB_STEP_SUMMARY
+          echo "- × 1000 services = maintenance nightmare" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**With Harness:** Built-in, zero code required" >> $GITHUB_STEP_SUMMARY
+
   policy-validation:
     name: Policy Validation
     runs-on: ubuntu-latest
