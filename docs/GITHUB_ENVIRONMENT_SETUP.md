@@ -156,28 +156,86 @@ When the workflow reaches the production job:
 
 ## Environment Variables and Secrets
 
-You can configure environment-specific secrets:
+You can configure environment-specific secrets to demonstrate different configurations per environment.
 
-### Per-Environment Secrets
+### Setting Up Environment Secrets
 
-1. Go to **Settings** → **Environments**
-2. Click environment name (e.g., `production`)
-3. Click **Add secret**
-4. Example secrets:
-   - `DATABASE_URL` (different per environment)
-   - `API_KEY` (prod has different key than dev)
-   - `SLACK_WEBHOOK` (notify different channels)
+#### For Dev Environment
 
-### Using in Workflows
+1. Go to **Settings** → **Environments** → **dev**
+2. Click **Add environment secret**
+3. Add these secrets:
+
+| Secret Name | Example Value | Purpose |
+|-------------|---------------|---------|
+| `DATABASE_URL` | `postgresql://dev-db:5432/users_dev` | Dev database connection |
+| `API_KEY` | `dev-api-key-12345` | Development API key |
+
+#### For Production Environment
+
+1. Go to **Settings** → **Environments** → **production**
+2. Click **Add environment secret**
+3. Add these secrets:
+
+| Secret Name | Example Value | Purpose |
+|-------------|---------------|---------|
+| `DATABASE_URL` | `postgresql://prod-db.internal:5432/users_production` | Production database (RDS, etc.) |
+| `API_KEY` | `prod-api-key-SECURE-VALUE-HERE` | Production API key |
+
+### What the Workflow Does
+
+The CD workflow creates **ConfigMaps** and **Secrets** for each environment:
+
+**ConfigMap** (non-sensitive configuration):
+```yaml
+ENVIRONMENT: dev | production
+LOG_LEVEL: debug | info
+FEATURE_FLAGS: {"newUI":true} | {"newUI":false}
+```
+
+**Secret** (sensitive data):
+```yaml
+DATABASE_URL: ${{ secrets.DATABASE_URL }}
+API_KEY: ${{ secrets.API_KEY }}
+```
+
+### Defaults vs Environment Secrets
+
+The workflow uses **fallback values** if secrets aren't configured:
 
 ```yaml
-deploy-prod:
-  environment: production
-  steps:
-    - name: Deploy
-      env:
-        DB_URL: ${{ secrets.DATABASE_URL }}  # Uses production-specific secret
+DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dev-db:5432/users_dev' }}
 ```
+
+- If `DATABASE_URL` secret exists in environment → uses that
+- If not configured → uses default placeholder value
+- **Production should always have real secrets configured!**
+
+### Viewing Secret Usage in Logs
+
+The workflow shows (masked) evidence of secrets being used:
+
+```
+✅ Dev environment config created
+   Environment: dev
+   Log Level: debug
+   Database: postgresql://***
+   API Key: dev***
+```
+
+GitHub automatically masks secret values in logs for security.
+
+### Example: Different Database Per Environment
+
+**Dev environment secret**:
+- Name: `DATABASE_URL`
+- Value: `postgresql://dev-db.internal:5432/users_dev`
+
+**Production environment secret**:
+- Name: `DATABASE_URL`  (same name!)
+- Value: `postgresql://prod-db-cluster.us-east-1.rds.amazonaws.com:5432/users_production`
+
+The same workflow reads different values based on which environment is deploying.
 
 ## Comparison: GitHub vs Harness
 
@@ -234,11 +292,114 @@ Setting up environments for one service is straightforward.
 - Developers can edit workflow files directly
 - No centralized deployment visibility
 
+## Step-by-Step: Adding Environment Secrets
+
+### 1. Navigate to Dev Environment
+
+1. Go to `https://github.com/YOUR_USERNAME/YOUR_REPO/settings/environments`
+2. Click on **dev** environment
+3. Scroll to **Environment secrets**
+4. Click **Add environment secret**
+
+### 2. Add DATABASE_URL for Dev
+
+1. Name: `DATABASE_URL`
+2. Value: `postgresql://dev-db:5432/users_dev`
+3. Click **Add secret**
+
+### 3. Add API_KEY for Dev
+
+1. Click **Add environment secret** again
+2. Name: `API_KEY`
+3. Value: `dev-api-key-12345`
+4. Click **Add secret**
+
+### 4. Repeat for Production Environment
+
+1. Click **Environments** to go back
+2. Click on **production** environment
+3. Add the same secrets but with production values:
+   - `DATABASE_URL`: `postgresql://prod-db.internal:5432/users_production`
+   - `API_KEY`: `prod-api-key-SECURE-VALUE-HERE`
+
+### 5. Verify Secrets Are Set
+
+You should see in each environment:
+
+**Dev environment secrets:**
+- DATABASE_URL (Updated X minutes ago)
+- API_KEY (Updated X minutes ago)
+
+**Production environment secrets:**
+- DATABASE_URL (Updated X minutes ago)
+- API_KEY (Updated X minutes ago)
+
+## Testing Environment-Specific Secrets
+
+### Trigger a Deployment
+
+1. Push a change to `main` branch
+2. Watch the workflow in **Actions** tab
+
+### Check Dev Deployment Logs
+
+In the "Create environment-specific config" step for dev, you'll see:
+
+```
+✅ Dev environment config created
+   Environment: dev
+   Log Level: debug
+   Database: postgresql://***
+   API Key: dev***
+```
+
+### Check Production Deployment Logs
+
+After approving production, you'll see:
+
+```
+✅ Production environment config created
+   Environment: production
+   Log Level: info
+   Database: postgresql://***
+   API Key: pro***
+```
+
+Notice:
+- **Different log levels** (debug vs info)
+- **Different feature flags** (beta enabled in dev, disabled in prod)
+- **Secret values are masked** in GitHub logs
+
+## What This Demonstrates
+
+✅ **Environment isolation**
+- Dev and production use completely different databases
+- API keys are environment-specific
+- Configuration differs (log levels, feature flags)
+
+✅ **Secret management**
+- Secrets are encrypted at rest
+- Masked in logs automatically
+- Can be rotated per environment
+
+⚠️ **Limitations**
+
+| Feature | GitHub Environments | Harness Secrets |
+|---------|-------------------|-----------------|
+| Environment-specific secrets | ✅ Yes | ✅ Yes |
+| Secret rotation | ❌ Manual via UI | ✅ Automated + integrations |
+| External secret managers | ❌ Requires custom code | ✅ Native (Vault, AWS Secrets Manager, etc.) |
+| Secret inheritance | ❌ Not supported | ✅ Org → Project → Environment |
+| Audit trail | ✅ Basic | ✅ Comprehensive |
+| RBAC on secrets | ❌ Limited | ✅ Fine-grained |
+
 ## Next Steps
 
 1. **Set up environments** following Step 2 and Step 3 above
-2. **Push a change** to trigger the workflow
-3. **Test approval flow** by approving production deployment
-4. **Compare** this experience to what Harness provides
+2. **Add environment secrets** following the steps in this section
+3. **Push a change** to trigger the workflow
+4. **Test approval flow** by approving production deployment
+5. **Verify** different secrets are used in dev vs production logs
+6. **Compare** this experience to what Harness provides
 
 See `docs/DEMO.md` for the complete walkthrough including this feature.

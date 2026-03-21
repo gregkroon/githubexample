@@ -54,6 +54,33 @@ jobs:
         run: |
           kubectl create namespace user-service-dev || true
 
+      - name: Create environment-specific config
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dev-db:5432/users_dev' }}
+          API_KEY: ${{ secrets.API_KEY || 'dev-api-key-12345' }}
+          ENVIRONMENT: dev
+        run: |
+          # Create ConfigMap with environment-specific configuration
+          kubectl create configmap user-service-config \
+            --from-literal=ENVIRONMENT=$ENVIRONMENT \
+            --from-literal=LOG_LEVEL=debug \
+            --from-literal=FEATURE_FLAGS='{"newUI":true,"betaFeatures":true}' \
+            -n user-service-dev \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Create Secret with sensitive data (DB credentials, API keys)
+          kubectl create secret generic user-service-secrets \
+            --from-literal=DATABASE_URL="$DATABASE_URL" \
+            --from-literal=API_KEY="$API_KEY" \
+            -n user-service-dev \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          echo "✅ Dev environment config created"
+          echo "   Environment: dev"
+          echo "   Log Level: debug"
+          echo "   Database: ${DATABASE_URL%%:*}://***" # Show only protocol
+          echo "   API Key: ${API_KEY:0:3}***" # Show only first 3 chars
+
       - name: Update deployment manifest with actual image
         run: |
           sed -i "s|IMAGE_TAG|ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}|g" services/user-service/k8s/deployment.yaml
@@ -171,6 +198,33 @@ jobs:
       - name: Create namespace
         run: |
           kubectl create namespace user-service-prod || true
+
+      - name: Create environment-specific config
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://prod-db.internal:5432/users_production' }}
+          API_KEY: ${{ secrets.API_KEY || 'prod-api-key-CHANGE-ME' }}
+          ENVIRONMENT: production
+        run: |
+          # Create ConfigMap with environment-specific configuration
+          kubectl create configmap user-service-config \
+            --from-literal=ENVIRONMENT=$ENVIRONMENT \
+            --from-literal=LOG_LEVEL=info \
+            --from-literal=FEATURE_FLAGS='{"newUI":false,"betaFeatures":false}' \
+            -n user-service-prod \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Create Secret with sensitive data (DB credentials, API keys)
+          kubectl create secret generic user-service-secrets \
+            --from-literal=DATABASE_URL="$DATABASE_URL" \
+            --from-literal=API_KEY="$API_KEY" \
+            -n user-service-prod \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          echo "✅ Production environment config created"
+          echo "   Environment: production"
+          echo "   Log Level: info"
+          echo "   Database: ${DATABASE_URL%%:*}://***" # Show only protocol
+          echo "   API Key: ${API_KEY:0:3}***" # Show only first 3 chars
 
       - name: Update deployment manifest with actual image
         run: |
