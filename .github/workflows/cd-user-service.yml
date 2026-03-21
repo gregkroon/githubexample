@@ -64,26 +64,41 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get image digest
+        id: get-digest
+        run: |
+          # Pull image manifest to get digest (not the image itself)
+          IMAGE_TAG="ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}"
+          DIGEST=$(docker manifest inspect $IMAGE_TAG | jq -r '.config.digest' || \
+                   docker buildx imagetools inspect $IMAGE_TAG --format '{{.Manifest.Digest}}')
+
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+          echo "Image digest: $DIGEST"
+          echo "Full reference: ghcr.io/${{ github.repository }}/user-service@$DIGEST"
+
       - name: Verify SBOM attestation (deployment gate)
+        env:
+          IMAGE_DIGEST: ghcr.io/${{ github.repository }}/user-service@${{ steps.get-digest.outputs.digest }}
         run: |
           echo "## 🔐 SBOM Attestation Verification (Deployment Gate)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`$IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Why we verify attestations:**" >> $GITHUB_STEP_SUMMARY
           echo "- SBOM could be stored in 3rd party repos (Artifactory, Nexus, S3)" >> $GITHUB_STEP_SUMMARY
           echo "- Must cryptographically prove SBOM is authentic" >> $GITHUB_STEP_SUMMARY
           echo "- Signature verifies: identity, integrity, and binding to image" >> $GITHUB_STEP_SUMMARY
+          echo "- **Must use digest (not tag)** for security" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Verify the SBOM attestation signature
+          # Verify the SBOM attestation signature using digest
           echo "Verifying SBOM attestation signature..."
 
           cosign verify-attestation \
             --type spdx \
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            ghcr.io/${{ github.repository }}/user-service:${{ github.sha }} > attestation.json || {
+            $IMAGE_DIGEST > attestation.json || {
             echo "❌ **DEPLOYMENT BLOCKED**: SBOM attestation verification failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Possible causes:**" >> $GITHUB_STEP_SUMMARY
@@ -123,14 +138,15 @@ jobs:
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**The complexity gap (40 lines of code):**" >> $GITHUB_STEP_SUMMARY
+          echo "**The complexity gap (50 lines of code):**" >> $GITHUB_STEP_SUMMARY
           echo "- Install Cosign" >> $GITHUB_STEP_SUMMARY
+          echo "- Get image digest (tags are mutable, insecure)" >> $GITHUB_STEP_SUMMARY
           echo "- Verify attestation with certificate matching" >> $GITHUB_STEP_SUMMARY
           echo "- Extract signed payload from base64" >> $GITHUB_STEP_SUMMARY
           echo "- Parse and validate SBOM contents" >> $GITHUB_STEP_SUMMARY
           echo "- Handle verification failures gracefully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**× 1000 services = 40,000 lines across deployment workflows**" >> $GITHUB_STEP_SUMMARY
+          echo "**× 1000 services = 50,000 lines across deployment workflows**" >> $GITHUB_STEP_SUMMARY
 
       - name: Create environment-specific config
         env:
@@ -287,27 +303,40 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get image digest
+        id: get-digest-prod
+        run: |
+          # Get image digest (required for secure attestation verification)
+          IMAGE_TAG="ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}"
+          DIGEST=$(docker buildx imagetools inspect $IMAGE_TAG --format '{{.Manifest.Digest}}')
+
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+          echo "Production image digest: $DIGEST"
+
       - name: Verify SBOM attestation for production
+        env:
+          IMAGE_DIGEST: ghcr.io/${{ github.repository }}/user-service@${{ steps.get-digest-prod.outputs.digest }}
         run: |
           echo "## 🔐 Production SBOM Attestation Verification" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**CRITICAL**: Production requires cryptographically verified SBOM" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`$IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Why attestation matters for production:**" >> $GITHUB_STEP_SUMMARY
           echo "- Compliance requirements (SLSA, SSDF)" >> $GITHUB_STEP_SUMMARY
           echo "- Supply chain security (prove provenance)" >> $GITHUB_STEP_SUMMARY
           echo "- Legal liability (evidence of due diligence)" >> $GITHUB_STEP_SUMMARY
           echo "- Audit trail (non-repudiation)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security**: Must use digest (not mutable tag)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Verify SBOM attestation
+          # Verify SBOM attestation using digest
           cosign verify-attestation \
             --type spdx \
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            ghcr.io/${{ github.repository }}/user-service:${{ github.sha }} > prod-attestation.json || {
+            $IMAGE_DIGEST > prod-attestation.json || {
             echo "❌ **PRODUCTION DEPLOYMENT BLOCKED**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Failure reason:** SBOM attestation verification failed" >> $GITHUB_STEP_SUMMARY
@@ -352,14 +381,19 @@ jobs:
           echo "✅ **Production deployment gate PASSED**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Total code for secure SBOM enforcement:**" >> $GITHUB_STEP_SUMMARY
-          echo "- CI: 40 lines (sign and attach attestation)" >> $GITHUB_STEP_SUMMARY
-          echo "- CD Dev: 40 lines (verify attestation)" >> $GITHUB_STEP_SUMMARY
-          echo "- CD Prod: 40 lines (verify attestation)" >> $GITHUB_STEP_SUMMARY
-          echo "- Total: **120 lines just for attestation**" >> $GITHUB_STEP_SUMMARY
+          echo "- CI: 50 lines (capture digest + sign + attach attestation)" >> $GITHUB_STEP_SUMMARY
+          echo "- CD Dev: 50 lines (resolve digest + verify attestation)" >> $GITHUB_STEP_SUMMARY
+          echo "- CD Prod: 50 lines (resolve digest + verify attestation)" >> $GITHUB_STEP_SUMMARY
+          echo "- Total: **150 lines just for attestation**" >> $GITHUB_STEP_SUMMARY
           echo "- Plus: **90 lines for SBOM validation logic**" >> $GITHUB_STEP_SUMMARY
-          echo "- **Grand total: 210 lines for secure SBOM**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Grand total: 240 lines for secure SBOM**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**With Harness: 0 lines (config-driven)**" >> $GITHUB_STEP_SUMMARY
+          echo "**Why digest instead of tag:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Tags are mutable (can be changed)" >> $GITHUB_STEP_SUMMARY
+          echo "- Digests are immutable (cryptographic hash)" >> $GITHUB_STEP_SUMMARY
+          echo "- CD must resolve tag → digest at deployment time" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**With Harness: 0 lines (config-driven, digest handling automatic)**" >> $GITHUB_STEP_SUMMARY
 
       - name: Create environment-specific config
         env:
