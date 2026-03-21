@@ -243,9 +243,11 @@ Sometimes the hardest thing to admit is: **someone else solved this problem bett
 
 ## Quick Links
 
-- **[Try the Demo](docs/DEMO.md)** - 30-minute hands-on walkthrough
+- **[Try the Demo](docs/DEMO.md)** - 35-minute hands-on walkthrough
 - **[Read Executive Summary](docs/EXECUTIVE_SUMMARY.md)** - 10-minute business case
-- **[Watch Workflows Run](https://github.com/gregkroon/githubexample/actions)** - See it live
+- **[SBOM Enforcement Deep Dive](docs/SBOM_ENFORCEMENT.md)** - Why generating SBOMs is easy, using them is hard
+- **[GitHub Environment Setup](docs/GITHUB_ENVIRONMENT_SETUP.md)** - Configure approval gates and secrets
+- **[Watch Workflows Run](https://github.com/gregkroon/githubexperiment/actions)** - See it live
 
 ---
 
