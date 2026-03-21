@@ -167,7 +167,7 @@ warn[msg] {
 }
 
 has_chown_flag(instruction) {
-    instruction.Flags[_] contains "--chown"
+    contains(instruction.Flags[_], "--chown")
 }
 
 # ==============================================================================
