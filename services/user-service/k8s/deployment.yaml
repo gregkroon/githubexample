@@ -87,6 +87,22 @@ spec:
         emptyDir: {}
 ---
 apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+spec:
+  type: ClusterIP
+  selector:
+    app: user-service
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: user-service
