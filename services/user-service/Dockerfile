@@ -1,6 +1,6 @@
 # CRITICAL: This base image must be from approved list
 # In production: Validated by OPA policy in CI pipeline
-FROM node:20-alpine@sha256:1a24f8e4c96d7d5e5b1d2d5c7d5e5f5a5b5c5d5e5f5a5b5c5d5e5f5a5b5c5d5e
+FROM node:20-alpine
 
 # Non-root user (security requirement)
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001

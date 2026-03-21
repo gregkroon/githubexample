@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine@sha256:1a24f8e4c96d7d5e5b1d2d5c7d5e5f5a5b5c5d5e5f5a5b5c5d5e5f5a5b5c5d5e AS builder
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /build
 
@@ -14,7 +14,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o payment-service .
 
 # Runtime stage
-FROM alpine:3.19@sha256:1a24f8e4c96d7d5e5b1d2d5c7d5e5f5a5b5c5d5e5f5a5b5c5d5e5f5a5b5c5d5e
+FROM alpine:3.19
 
 # Install ca-certificates for HTTPS calls
 RUN apk --no-cache add ca-certificates
