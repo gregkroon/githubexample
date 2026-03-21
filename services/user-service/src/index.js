@@ -91,17 +91,21 @@ app.post('/api/users', (req, res) => {
   res.status(201).json({ id: 3, name, email });
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    logger.info('Server closed');
-    process.exit(0);
+// Only start server if not in test mode
+let server;
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(PORT, () => {
+    logger.info(`User service listening on port ${PORT}`);
   });
-});
 
-const server = app.listen(PORT, () => {
-  logger.info(`User service listening on port ${PORT}`);
-});
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      logger.info('Server closed');
+      process.exit(0);
+    });
+  });
+}
 
-module.exports = app; // For testing
+module.exports = app;
