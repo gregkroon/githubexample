@@ -157,10 +157,118 @@ jobs:
           name: sbom
           path: sbom.spdx.json
 
+  sbom-validation:
+    name: SBOM Validation
+    runs-on: ubuntu-latest
+    needs: sbom
+
+    steps:
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom
+
+      - name: Install jq for JSON parsing
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Display SBOM summary
+        run: |
+          echo "## 📦 SBOM Contents" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          TOTAL_PACKAGES=$(jq '.packages | length' sbom.spdx.json)
+          echo "**Total packages:** $TOTAL_PACKAGES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Top 10 Packages" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          jq -r '.packages[0:10] | .[] | "\(.name) \(.versionInfo // "unknown")"' sbom.spdx.json >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for banned packages
+        run: |
+          echo "## 🚫 Banned Package Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check for known vulnerable packages
+          # This is a simplified example - in production you'd have a comprehensive list
+
+          BANNED_FOUND=false
+
+          # Check for log4j < 2.17.1 (Log4Shell vulnerability)
+          if jq -e '.packages[] | select(.name | test("log4j"; "i")) | select(.versionInfo | test("^2\\.(0|1[0-6])\\."))' sbom.spdx.json > /dev/null 2>&1; then
+            echo "❌ **CRITICAL**: log4j < 2.17.1 detected (CVE-2021-44228)" >> $GITHUB_STEP_SUMMARY
+            BANNED_FOUND=true
+          fi
+
+          # Check for other examples (these won't actually be in our Node.js app)
+          # Just demonstrating what real validation looks like
+
+          if [ "$BANNED_FOUND" = true ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Result:** ❌ Deployment blocked due to banned packages" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**NOTE**: In this demo, we continue anyway to show the pipeline." >> $GITHUB_STEP_SUMMARY
+            echo "In production, this would BLOCK deployment." >> $GITHUB_STEP_SUMMARY
+            # exit 1  # Uncomment to actually block deployment
+          else
+            echo "✅ No banned packages detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check license compliance
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📜 License Compliance Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Extract unique licenses
+          LICENSES=$(jq -r '.packages[].licenseConcluded // "NOASSERTION"' sbom.spdx.json | sort -u)
+
+          echo "**Licenses found:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$LICENSES" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check for banned licenses (GPL, AGPL for proprietary software)
+          BANNED_LICENSES="GPL|AGPL|SSPL"
+
+          if echo "$LICENSES" | grep -iE "$BANNED_LICENSES" > /dev/null 2>&1; then
+            echo "⚠️ **WARNING**: Potentially incompatible licenses detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Banned licenses found:**" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "$LICENSES" | grep -iE "$BANNED_LICENSES" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**NOTE**: This would require legal review before deployment." >> $GITHUB_STEP_SUMMARY
+            # exit 1  # Uncomment to block deployment
+          else
+            echo "✅ All licenses are compliant" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: SBOM validation summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 💡 What This Demonstrates" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Easy**: Generate SBOM (Syft does this automatically)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **Hard**: Actually USE the SBOM to enforce policies" >> $GITHUB_STEP_SUMMARY
+          echo "- Custom bash/jq scripting for each check" >> $GITHUB_STEP_SUMMARY
+          echo "- Maintain banned package lists manually" >> $GITHUB_STEP_SUMMARY
+          echo "- Update license policies in 1000 workflow files" >> $GITHUB_STEP_SUMMARY
+          echo "- No centralized SBOM database for queries" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**At scale**: This validation code × 1000 repositories = configuration drift nightmare" >> $GITHUB_STEP_SUMMARY
+
   sign:
     name: Sign Image
     runs-on: ubuntu-latest
-    needs: [build, security-scan, sbom]
+    needs: [build, security-scan, sbom-validation]
 
     steps:
       - name: Checkout code
@@ -213,7 +321,7 @@ jobs:
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [test, security-scan, sbom, sign, policy-validation]
+    needs: [test, security-scan, sbom, sbom-validation, sign, policy-validation]
     if: always()
 
     steps:
@@ -223,8 +331,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ Tests: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
           echo "✅ Security Scan: ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "✅ SBOM: ${{ needs.sbom.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ SBOM Generation: ${{ needs.sbom.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ SBOM Validation: ${{ needs.sbom-validation.result }}" >> $GITHUB_STEP_SUMMARY
           echo "✅ Signing: ${{ needs.sign.result }}" >> $GITHUB_STEP_SUMMARY
           echo "✅ Policy Validation: ${{ needs.policy-validation.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Image: \`ghcr.io/${{ github.repository }}/user-service:main-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
