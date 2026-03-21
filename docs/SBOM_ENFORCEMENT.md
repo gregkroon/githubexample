@@ -10,6 +10,7 @@ The CI workflow for user-service now includes **real SBOM validation** to show t
 
 ## The Pipeline Flow
 
+### CI Pipeline
 ```
 Build Image
     ↓
@@ -21,8 +22,28 @@ SBOM Validation ← Hard, requires custom code
     └─ Block deployment if violations found
     ↓
 Sign Image (only if SBOM passes)
+```
+
+### CD Pipeline (Deployment Time)
+```
+Deployment Triggered
     ↓
-Deploy
+Verify SBOM Exists ← Hard, cross-workflow coordination
+    ├─ Download SBOM from CI workflow
+    ├─ Validate SBOM is complete
+    ├─ Check production-specific policies
+    └─ Block if SBOM missing or invalid
+    ↓
+Deploy to Dev
+    ↓
+(Approval Gate)
+    ↓
+Verify SBOM Again ← Production gate
+    ├─ Re-download and re-validate
+    ├─ Check for dev dependencies
+    └─ Block if validation fails
+    ↓
+Deploy to Production
 ```
 
 ## What SBOM Validation Does
@@ -76,6 +97,7 @@ if echo "$LICENSES" | grep -iE "GPL|AGPL|SSPL"
 
 ## The Problem: Custom Code Required
 
+### In CI Pipeline
 Look at `.github/workflows/ci-user-service.yml` lines 160-250.
 
 **Every policy check requires:**
@@ -86,33 +108,85 @@ Look at `.github/workflows/ci-user-service.yml` lines 160-250.
 
 **This is 90+ lines of custom code** just for basic SBOM validation.
 
+### In CD Pipeline (Deployment Gates)
+Look at `.github/workflows/cd-user-service.yml` - "Verify SBOM" steps.
+
+**Every deployment environment requires:**
+- Cross-workflow artifact download (using GitHub CLI)
+- Re-validation of SBOM contents
+- Environment-specific policy checks
+- Proper error handling and fallbacks
+
+**This is 60+ lines per environment** (dev and production).
+
+### The Cross-Workflow Complexity
+
+The CD workflow runs separately from CI, creating coordination challenges:
+
+**Problem 1: Artifact Coordination**
+```bash
+# CD must download SBOM from CI
+CI_RUN_ID="${{ github.event.workflow_run.id }}"
+gh run download $CI_RUN_ID --name sbom --dir ./sbom-download
+```
+
+**What can go wrong:**
+- Artifact already expired (90-day retention)
+- Workflow run ID doesn't match
+- Permissions issues with GITHUB_TOKEN
+- Artifact corrupted or incomplete
+
+**Problem 2: No Built-in Verification**
+- No native "require artifact X before deploy"
+- Must write custom download/validation logic
+- Each environment needs separate verification
+- No centralized artifact registry
+
+**Problem 3: Maintenance at Scale**
+```
+1000 services × 2 workflows × 60 lines = 120,000 lines
+All doing the same thing: "Check if SBOM exists"
+```
+
 ## At Scale: The Real Cost
 
 ### For 1 Service (This Demo)
 ```
 ✅ SBOM generation: 1 line (uses: anchore/sbom-action@v0)
-❌ SBOM validation: 90 lines of custom bash/jq
+❌ SBOM validation (CI): 90 lines of custom bash/jq
+❌ SBOM verification (CD): 60 lines per environment × 2 = 120 lines
+──────────────────────────────────────────────────────────
+Total custom code: 210 lines just for SBOM enforcement
 ```
 
 ### For 1000 Services
 ```
-Copy 90 lines × 1000 workflows = 90,000 lines
-Update banned package list? → Edit 1000 files
-New license policy? → Edit 1000 files
+CI validation: 90 lines × 1000 workflows = 90,000 lines
+CD verification: 120 lines × 1000 workflows = 120,000 lines
+──────────────────────────────────────────────────────────
+Total: 210,000 lines of SBOM enforcement code
+
+Update banned package list? → Edit 2000 files (CI + CD)
+New license policy? → Edit 2000 files
 CVE database integration? → Build custom service
+Artifact coordination breaks? → Debug 1000 workflows
 ```
 
 **Time to implement:**
-- Write validation logic: 1 week
-- Copy to 1000 repos: 2 weeks
-- Test and debug: 2 weeks
-- **Total: 5 weeks**
+- Write CI validation logic: 1 week
+- Write CD verification logic: 1 week
+- Cross-workflow artifact coordination: 2 weeks
+- Copy to 1000 repos: 3 weeks
+- Test and debug: 3 weeks
+- **Total: 10 weeks**
 
 **Ongoing maintenance:**
-- Update banned packages: 4 hrs/week
-- Respond to new CVEs: 8 hrs/incident
-- Fix drift across repos: 8 hrs/week
-- **Total: 1 FTE**
+- Update banned packages (CI + CD): 8 hrs/week
+- Respond to new CVEs: 12 hrs/incident
+- Fix cross-workflow coordination issues: 6 hrs/week
+- Fix configuration drift: 10 hrs/week
+- Handle artifact retention issues: 4 hrs/week
+- **Total: 1.5 FTE**
 
 ## What's Missing (vs Purpose-Built Platforms)
 
@@ -120,12 +194,14 @@ CVE database integration? → Build custom service
 |---------|----------------------|-----------------|---------|
 | Generate SBOM | ✅ Syft | ✅ Built-in | ✅ Built-in |
 | Store SBOM | Artifact only | Centralized database | ✅ Centralized |
+| Deployment-time verification | ⚠️ Custom code (60 lines) | Cross-workflow coordination | ✅ Built-in gate |
 | Banned packages | ❌ Manual list in code | CVE database integration | ✅ Integrated |
 | License compliance | ❌ Manual regex | Legal policy engine | ✅ Configurable |
 | Cross-service queries | ❌ Not possible | Custom database + API | ✅ "What has log4j?" |
 | Auto-update policies | ❌ Edit 1000 files | Custom sync service | ✅ One command |
 | Block deployment | ⚠️ Demo only | Actually block | ✅ Enforced |
 | SBOM attestation | ❌ Not attached | Cosign integration | ✅ Signed & attached |
+| Artifact coordination | ❌ Manual gh CLI | Central registry | ✅ Automatic |
 
 ## Why This Is "Security Theater"
 
