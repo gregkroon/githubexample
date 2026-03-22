@@ -3,19 +3,20 @@
 **Watch GitHub Actions fail at enterprise deployment in real-time.**
 
 **Time**: 20 minutes
-**Outcome**: See the 5 critical gaps firsthand
+**Outcome**: See the 6 critical gaps firsthand
 
 ---
 
 ## What You'll See
 
-Walk through a **real, working GitHub Actions implementation** and experience the five gaps that make it unsuitable for enterprise CD:
+Walk through a **real, working GitHub Actions implementation** and experience the six gaps that make it unsuitable for enterprise CD:
 
 1. ❌ **Configuration sprawl** (3,000 environments manually configured)
 2. ❌ **No rollback** (redeploy takes 5-15 min vs Harness < 1 min)
 3. ❌ **Heterogeneous = custom code** (2,500+ lines across 6 platforms)
 4. ❌ **No deployment verification** (bad deploys reach production)
 5. ❌ **No multi-service orchestration** (can't enforce order)
+6. ❌ **No database DevOps** (custom Liquibase/Flyway, no safe rollback)
 
 **All pipelines run live**: https://github.com/gregkroon/githubexperiment/actions
 
@@ -256,6 +257,100 @@ Service dependencies:
 
 ---
 
+## Problem 6: No Database DevOps
+
+### The Scenario
+Deploy backend API with new database schema. How do you:
+- Version database changes?
+- Deploy schema migrations safely?
+- Roll back database changes if deployment fails?
+- Coordinate app + database deployment order?
+
+### Try It
+**GitHub Actions**: ❌ **No native database DevOps**
+
+### What You Must Build
+**Custom database deployment pipeline**:
+```yaml
+# Each service needs custom Liquibase/Flyway workflow
+- name: Database Migration
+  run: |
+    # Install Liquibase/Flyway
+    # Configure connection strings
+    # Run migrations
+    # Hope nothing breaks
+    liquibase update --changeLogFile=db/changelog.xml
+
+# Problems:
+# ❌ No rollback capability (DB changes often irreversible)
+# ❌ No verification (did migration succeed?)
+# ❌ No coordination with app deployment
+# ❌ No approval gates for schema changes
+# ❌ Manual sequencing (DB first, then app)
+```
+
+**Custom scripts required** (~200 lines per service):
+- Connection management
+- Migration orchestration
+- Error handling
+- Rollback procedures (manual)
+- Health checks
+
+**Build**: 3-4 weeks
+**Maintenance**: 4-6 hrs/week
+**Risk**: Database changes with no safe rollback path
+
+### With Harness Database DevOps
+- ✅ Native Liquibase/Flyway integration
+- ✅ Automated rollback for schema changes
+- ✅ Database deployment verification
+- ✅ Coordinated app + DB deployments
+- ✅ Approval workflows for schema changes
+- ✅ Multi-environment promotion (dev → staging → prod)
+- ✅ Drift detection (schema vs actual DB state)
+
+**Example**: Deploy backend API with database migration
+```
+1. Harness runs DB migration (dev environment)
+2. Verifies migration success
+3. Waits for approval
+4. Deploys application
+5. If app fails → automatically rolls back DB + app
+6. Full audit trail of all schema changes
+```
+
+### The Database Deployment Reality
+
+**GitHub Actions approach**:
+```yaml
+# Service 1: payment-service
+- Manually write Liquibase workflow
+- Custom rollback scripts
+- No verification
+
+# Service 2: user-service
+- Duplicate Liquibase workflow
+- Different connection config
+- Configuration drift
+
+# Service 3: order-service
+- Uses Flyway instead
+- Completely different workflow
+- No consistency
+```
+
+**Result**: 1000 services × 200 lines = **200,000 lines of DB deployment code**
+
+### With Harness
+- One centralized DB deployment template
+- Apply to all 1000 services
+- Automatic rollback
+- Consistent everywhere
+
+**Conclusion**: ❌ **3-4 weeks to build + 200,000 lines custom code**
+
+---
+
 ## The Complete Picture
 
 | Capability | GitHub | Harness | Gap |
@@ -265,11 +360,12 @@ Service dependencies:
 | **Multi-platform** | 2,500+ lines | 0 lines (native) | 2,500+ lines maintenance |
 | **Verification** | Build it (6 weeks) | Built-in ML | 6 weeks + ongoing |
 | **Orchestration** | Build it (12 weeks) | Built-in | 12 weeks + ongoing |
+| **Database DevOps** | Custom Liquibase (4 weeks) | Native with rollback | 200,000 lines DB code |
 
 **Total investment to match Harness**:
-- **32 weeks build**
-- **30-48 hrs/week** ongoing maintenance
-- **2,500+ lines** custom code
+- **36 weeks build**
+- **35-54 hrs/week** ongoing maintenance
+- **202,500+ lines** custom code
 - **4.5 FTE** vs 2 FTE
 
 **[See full cost breakdown →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
@@ -281,12 +377,12 @@ Service dependencies:
 | | GitHub Actions | Harness CD |
 |---|---|---|
 | **Licenses** | $250k (5yr) | $3,230k (5yr) |
-| **Custom dev** | $800k | $300k (Year 1 only) |
+| **Custom dev** | $975k | $300k (Year 1 only) |
 | **Platform team** | $4,500k (4.5 FTE) | $2,000k (2 FTE) |
-| **Hidden costs** | $400k | $0 |
-| **TOTAL (5yr)** | **$5,950k** | **$5,530k** |
+| **Hidden costs** | $850k | $0 |
+| **TOTAL (5yr)** | **$6,625k** | **$5,530k** |
 
-**Harness: $420k cheaper + 10× capability**
+**Harness: $1,095k cheaper + 10× capability**
 
 **[See detailed workings →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
@@ -309,11 +405,12 @@ Service dependencies:
 **GitHub Actions is TERRIBLE for enterprise CD**:
 - ❌ No rollback (14× slower incident response)
 - ❌ No verification (bad deploys reach production)
-- ❌ Heterogeneous = 2,500+ lines custom code
+- ❌ Heterogeneous = 202,500+ lines custom code
 - ❌ No orchestration (complex deployments fail)
+- ❌ No database DevOps (200,000 lines DB deployment code)
 - ❌ Configuration sprawl (1,000 hours manual work)
 
-**Don't waste 32 weeks building what Harness has**
+**Don't waste 36 weeks building what Harness has**
 
 ---
 
@@ -423,8 +520,8 @@ cd githubexperiment
 **What this demo proved**:
 - ❌ Configuration doesn't scale (1,000 hours manual)
 - ❌ No rollback (14× slower MTTR)
-- ❌ Heterogeneous = 2,500+ lines custom code
-- ❌ Must build verification & orchestration (32 weeks)
+- ❌ Heterogeneous = 202,500+ lines custom code
+- ❌ Must build verification, orchestration & DB DevOps (36 weeks)
 - ❌ Platform team burns out maintaining workarounds
 
 **For enterprise CD**: Stop building what Harness already has.

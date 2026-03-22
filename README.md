@@ -12,15 +12,16 @@
 
 | | GitHub Actions | Harness CD |
 |---|---|---|
-| **5-Year Cost** | $6.5M | $6.0M |
+| **5-Year Cost** | $6.6M | $5.5M |
 | **Platform Team** | 4.5 FTE (firefighting) | 2 FTE (building features) |
-| **Custom Code** | 2,500+ lines | 0 lines |
+| **Custom Code** | 202,500+ lines | 0 lines |
 | **Rollback** | ❌ Redeploy (5-15 min) | ✅ One-click (< 1 min) |
 | **Verification** | ❌ None | ✅ ML-based auto-rollback |
 | **Multi-Platform** | ❌ Custom scripts | ✅ Native support |
+| **Database DevOps** | ❌ Custom Liquibase/Flyway | ✅ Native with rollback |
 | **Security Bypass** | ⚠️ One architectural gap | ✅ None (sequential stages) |
 
-**Harness is $500k cheaper with 10× the capability.**
+**Harness is $1.1M cheaper with 10× the capability.**
 
 ---
 
@@ -40,7 +41,7 @@ Each with: Build → Test → Scan → SBOM → Sign → Deploy
 ## Read This Based on Your Role
 
 ### 👨‍💻 Engineers: Hands-On Demo (20 min)
-**[→ DEMO.md](docs/DEMO.md)** - Walk through actual implementation, see the 5 critical gaps
+**[→ DEMO.md](docs/DEMO.md)** - Walk through actual implementation, see the 6 critical gaps
 
 ### 👔 Leadership & Finance: Business Case (10 min)
 **[→ EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)** - Strategic decision framework, detailed cost breakdown, security analysis (see appendices)
@@ -69,7 +70,12 @@ Each with: Build → Test → Scan → SBOM → Sign → Deploy
 **Harness**: Dependency graphs built-in
 **Impact**: Complex deployments fail silently
 
-### 5. ⚠️ Parallel Execution Security Gap
+### 5. ❌ No Database DevOps
+**GitHub**: Custom Liquibase/Flyway scripts, no rollback
+**Harness**: Native DB schema management with rollback
+**Impact**: Database changes deployed blind, no safe rollback path
+
+### 6. ⚠️ Parallel Execution Security Gap
 **GitHub Enterprise Required Workflows** prevent most bypasses (skip scan, continue-on-error, bypass branch protection) BUT workflows run in **parallel** - deployment can complete before Required Workflow security scan finishes.
 
 **Harness**: Sequential pipeline stages architecturally block deployment until security passes.
@@ -83,11 +89,11 @@ Each with: Build → Test → Scan → SBOM → Sign → Deploy
 ### GitHub Actions (5-Year TCO)
 ```
 Licenses:          $250k  (GitHub Enterprise, 200 users)
-Custom dev:        $800k  (Build + maintain 2,500 lines)
+Custom dev:        $975k  (Build + maintain 202,500 lines)
 Platform team:    $4,500k (4.5 FTE × $200k × 5 years)
-Hidden costs:      $400k  (Incidents, silos, compliance)
+Hidden costs:      $850k  (Incidents, silos, compliance, DB failures)
 ────────────────────────
-TOTAL:           $5,950k
+TOTAL:           $6,625k
 ```
 
 ### Harness CD (5-Year TCO)
@@ -99,7 +105,7 @@ Platform team:   $2,000k  (2 FTE × $200k × 5 years)
 TOTAL:           $5,530k
 ```
 
-**Harness saves $420k (7%) with 10× more capability**
+**Harness saves $1,095k (17%) with 10× more capability**
 
 **[See detailed workings in EXEC_SUMMARY →](docs/EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
@@ -120,6 +126,7 @@ TOTAL:           $5,530k
 - Rollback & verification
 - Deployment strategies (canary, blue-green)
 - Orchestration & governance
+- Database DevOps (schema migrations, rollback)
 
 ---
 
@@ -206,8 +213,8 @@ GitHub might work with custom engineering (~$2M over 5 years)
 **But**: Still missing rollback, verification, orchestration
 
 **For heterogeneous enterprises** (1000+ services):
-GitHub costs MORE ($6.5M vs $6.0M) with LESS capability
-**Harness**: $420k cheaper + rollback + verification + orchestration
+GitHub costs MORE ($6.6M vs $5.5M) with LESS capability
+**Harness**: $1.1M cheaper + rollback + verification + orchestration + database DevOps
 
 **Stop building what Harness already has.**
 
@@ -251,12 +258,13 @@ MIT - Use this however helps your organization make informed decisions
 **GitHub Actions: Excellent CI tool, poor CD platform**
 
 **For 95% of enterprises** (heterogeneous infrastructure):
-- Harness is $420k cheaper
+- Harness is $1.1M cheaper
 - Harness requires 2.5 fewer FTE
 - Harness has rollback (< 1 min vs 5-15 min)
 - Harness has verification (catches bad deploys)
 - Harness has orchestration (multi-service dependencies)
-- Harness has zero custom code (vs 2,500+ lines)
+- Harness has database DevOps (schema migrations with rollback)
+- Harness has zero custom code (vs 202,500+ lines)
 
 **Use the right tool for the job:**
 - ✅ GitHub Actions for CI
