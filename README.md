@@ -18,17 +18,15 @@
 | **Rollback** | ❌ Redeploy (5-15 min) | ✅ One-click (< 1 min) |
 | **Verification** | ❌ None | ✅ ML-based auto-rollback |
 | **Multi-Platform** | ❌ Custom scripts | ✅ Native support |
+| **Security Bypass** | ⚠️ One architectural gap | ✅ None (sequential stages) |
 
 **Harness is $500k cheaper with 10× the capability.**
-
-👉 **[See detailed cost workings](docs/COST_ANALYSIS.md)** (auditable to the line-item)
 
 ---
 
 ## The Proof
 
 **Live CI/CD pipelines** running on every push:
-
 - **user-service** (Node.js)
 - **payment-service** (Go)
 - **notification-service** (Python)
@@ -39,330 +37,235 @@ Each with: Build → Test → Scan → SBOM → Sign → Deploy
 
 ---
 
-## Three Ways to Dig Deeper
+## Read This Based on Your Role
 
-### 1. 👨‍💻 For Engineers: Try the Demo (35 min)
+### 👨‍💻 Engineers: Hands-On Demo (20 min)
+**[→ DEMO.md](docs/DEMO.md)** - Walk through actual implementation, see the 5 critical gaps
 
-**[→ Step-by-Step Demo](docs/DEMO.md)**
+### 👔 Leadership: Business Case (5 min)
+**[→ EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)** - Strategic decision framework
 
-Walk through actual GitHub Actions implementation and see where it breaks:
-- Configuration sprawl (3,000 environments)
-- Custom code burden (2,500+ lines)
-- Missing rollback
-- No verification
-- Heterogeneous complexity
+### 💰 Finance: Detailed Cost Analysis (25 min)
+**[→ COST_ANALYSIS.md](docs/COST_ANALYSIS.md)** - Line-by-line breakdown, 16 cited sources, sensitivity analysis
 
-**You'll experience the pain firsthand.**
+### 🔒 Security Teams: Bypass Analysis (15 min)
+**[→ SECURITY_ENFORCEMENT.md](docs/SECURITY_ENFORCEMENT.md)** - GitHub Enterprise features tested, what works vs what doesn't
 
----
-
-### 2. 💼 For Leadership: Read the Business Case (15 min)
-
-**[→ Executive Summary](docs/EXECUTIVE_SUMMARY.md)**
-
-Understand the strategic implications:
-- What GitHub does well (CI)
-- What GitHub cannot do (enterprise CD)
-- When to choose each approach
-- Team sizing and operational burden
-- Risk analysis
-
-**Make informed budget decisions.**
-
----
-
-### 3. 💰 For Finance: See the Math (20 min)
-
-**[→ Cost Analysis](docs/COST_ANALYSIS.md)**
-
-Granular breakdown of all costs with citations:
-- FTE calculations (fully-loaded: $200k)
-- GitHub Enterprise licensing
-- Harness Enterprise pricing
-- Custom development costs
-- Hidden operational costs
-- Sensitivity analysis
-
-**Auditable to the line-item level.**
+### 🏢 Enterprise Architects: Multi-Platform Reality (10 min)
+**[→ HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md)** - Why heterogeneous changes the cost equation
 
 ---
 
 ## What GitHub Actions CANNOT Do
 
-**Five fundamental gaps that no amount of engineering can fix:**
-
-### 1. ❌ No Rollback
-- **GitHub**: Redeploy previous version (5-15 min MTTR)
-- **Harness**: One-click rollback (< 1 min MTTR)
-- **Impact**: One major outage = $5M+ in lost revenue
+### 1. ❌ No One-Click Rollback
+**GitHub**: Revert code + redeploy (5-15 min MTTR)
+**Harness**: Click button (< 1 min MTTR)
+**Impact**: One outage = $5M+ lost revenue
 
 ### 2. ❌ No Deployment Verification
-- **GitHub**: Deploy and hope it works
-- **Harness**: ML-based analysis, automatic rollback on anomalies
-- **Impact**: Bad deploys reach production, customers affected
+**GitHub**: Deploy and hope
+**Harness**: ML-based anomaly detection, auto-rollback
+**Impact**: Bad deploys reach production
 
-### 3. ❌ Heterogeneous Infrastructure is Custom Code
-- **GitHub**: 2,500+ lines across K8s, VMs, ECS, Lambda, on-prem
-- **Harness**: Native support for all platforms, vendor-maintained
-- **Impact**: 4.5 FTE maintaining scripts vs 2 FTE managing platform
+### 3. ❌ Heterogeneous = 2,500+ Lines Custom Code
+**GitHub**: Custom scripts for VMs, ECS, Lambda, on-prem
+**Harness**: Native support, vendor-maintained
+**Impact**: 4.5 FTE maintaining vs 2 FTE managing
 
 ### 4. ❌ No Multi-Service Orchestration
-- **GitHub**: Can't enforce service deployment order
-- **Harness**: Dependency graphs, sequential/parallel control
-- **Impact**: Complex deployments fail silently
+**GitHub**: Can't enforce deployment order across services
+**Harness**: Dependency graphs built-in
+**Impact**: Complex deployments fail silently
 
-### 5. ❌ No Deployment Governance
-- **GitHub**: Can't enforce deployment windows, freezes, approvals at scale
-- **Harness**: Built-in windows, holiday calendars, incident blocking
-- **Impact**: Friday 6pm deploys happen, incidents during on-call gaps
+### 5. ⚠️ Parallel Execution Security Gap
+**GitHub Enterprise Required Workflows** prevent most bypasses (skip scan, continue-on-error, bypass branch protection) BUT workflows run in **parallel** - deployment can complete before Required Workflow security scan finishes.
 
-**[See all 10 gaps](docs/DEMO.md#what-github-cannot-do)**
+**Harness**: Sequential pipeline stages architecturally block deployment until security passes.
 
----
-
-## The Hidden Cost: Platform Team Burden
-
-### GitHub Actions Reality
-
-**What you'll build and maintain:**
-- 6 deployment patterns (K8s, VMs, ECS, Lambda, Azure, on-prem)
-- 2,500+ lines of custom deployment code
-- 3,000 environment configurations
-- Custom orchestration, verification, metrics services
-- Constant firefighting when platform APIs change
-
-**Team required**: 4.5 FTE
-- Need multi-cloud, multi-platform expertise
-- On-call rotation for custom services
-- Constant maintenance, no time for features
+**[See detailed security analysis →](docs/SECURITY_ENFORCEMENT.md)**
 
 ---
 
-### Harness CD Reality
+## The Cost Reality
 
-**What vendor provides:**
-- All deployment targets supported natively
-- Zero custom deployment code
-- Centralized environment management
-- Built-in orchestration, verification, metrics
-- Vendor maintains integrations
+### GitHub Actions (5-Year TCO)
+```
+Licenses:          $250k  (GitHub Enterprise, 200 users)
+Custom dev:        $800k  (Build + maintain 2,500 lines)
+Platform team:    $4,500k (4.5 FTE × $200k × 5 years)
+Hidden costs:      $400k  (Incidents, silos, compliance)
+────────────────────────
+TOTAL:           $5,950k
+```
 
-**Team required**: 2 FTE
-- Focus on business logic, not platform plumbing
-- Vendor handles platform complexity
-- Time to build features that matter
+### Harness CD (5-Year TCO)
+```
+Licenses:        $3,230k  (GitHub Team + Harness Enterprise)
+Prof services:     $300k  (Year 1 implementation)
+Platform team:   $2,000k  (2 FTE × $200k × 5 years)
+────────────────────────
+TOTAL:           $5,530k
+```
 
----
+**Harness saves $420k (7%) with 10× more capability**
 
-## Who This Repository Is For
-
-### ✅ Use This If You're:
-- Evaluating GitHub Actions vs dedicated CD platforms
-- Experiencing pain at scale with GitHub Actions
-- Need honest cost analysis (not vendor marketing)
-- Building business case for platform investment
-- Want to see actual working implementation
-
-### ❌ This Is NOT:
-- A "GitHub is terrible" hit piece (it's excellent for CI)
-- Vendor-sponsored content (independent analysis)
-- Theoretical comparison (everything runs live)
-- Homogeneous K8s-only analysis (see [HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md))
+**[See detailed workings →](docs/COST_ANALYSIS.md)** (auditable to line-item, 16 sources)
 
 ---
 
 ## The Right Architecture
 
-### ✅ Recommended Approach
+**✅ Use each tool for its strengths:**
 
-**GitHub Actions for CI** (what it's designed for):
-- Build and test orchestration
-- Security scanning (CodeQL, Dependabot, Trivy)
+**GitHub Actions for CI**:
+- Build & test orchestration
+- Security scanning (CodeQL, Trivy, Dependabot)
 - SBOM generation
 - Artifact publishing
 
-**Harness CD for deployments** (what it's designed for):
+**Harness CD for deployments**:
 - Multi-platform deployments
-- Rollback and verification
+- Rollback & verification
 - Deployment strategies (canary, blue-green)
-- Orchestration and governance
-
-**Best of both worlds**: Use each tool for its strengths
+- Orchestration & governance
 
 ---
 
-### ❌ What NOT To Do
+## When to Use What
 
-**Don't use GitHub Actions for enterprise CD if you have:**
-- Multiple deployment targets (K8s + anything else)
-- Need for rollback capability
-- Governance requirements (windows, approvals, freezes)
-- Limited platform engineering capacity
-- More than 200 services
+### Use GitHub Actions (CI + CD) If:
+- ✅ < 50 services
+- ✅ 100% Kubernetes in single cloud
+- ✅ High trust in developers
+- ✅ Can accept no rollback/verification
+- ✅ Unlimited platform engineering time
 
-**You'll waste $500k+ and countless engineering hours building what Harness already has.**
+**Cost**: ~$1-2M over 5 years
+**Risk**: One multi-cloud mandate = complete rebuild
+
+---
+
+### Use Harness CD If:
+- ✅ 200+ services
+- ✅ ANY deployment heterogeneity (K8s + VMs/ECS/Lambda/on-prem)
+- ✅ Need rollback capability
+- ✅ Need deployment verification
+- ✅ Limited platform engineering capacity
+- ✅ Governance requirements (windows, approvals, freezes)
+
+**Cost**: ~$5.5-6M over 5 years
+**Benefit**: $420k cheaper than GitHub + 10× capability
+
+**[See decision framework →](docs/EXECUTIVE_SUMMARY.md)**
 
 ---
 
 ## Quick Start
 
-### Fork and Run
 ```bash
-# 1. Fork this repository
+# Fork and run
 gh repo fork gregkroon/githubexperiment
+cd githubexperiment
+echo "test" >> README.md && git commit -am "trigger" && git push
 
-# 2. Enable Actions
-# GitHub → Settings → Actions → Allow all actions
-
-# 3. Push a change
-echo "test" >> README.md
-git commit -am "trigger pipeline"
-git push
-
-# 4. Watch workflows run
+# Watch workflows
 gh run watch
 ```
 
-### See the Gaps
-1. Try to rollback a deployment (you can't)
-2. Try to verify deployment health (no built-in way)
-3. Try to orchestrate multi-service deploy (custom code required)
-4. Try to manage 1000 environments centrally (impossible via UI)
+**Then try**:
+1. Roll back a deployment (you can't)
+2. Verify deployment health (no built-in way)
+3. Orchestrate multi-service deploy (custom code required)
 
-**Then compare to Harness demo.**
-
----
-
-## Key Documents
-
-| Document | Purpose | Read Time | Audience |
-|----------|---------|-----------|----------|
-| [DEMO.md](docs/DEMO.md) | Step-by-step walkthrough | 35 min | Engineers |
-| [EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md) | Business case | 15 min | Leadership |
-| [COST_ANALYSIS.md](docs/COST_ANALYSIS.md) | Detailed workings | 20 min | Finance |
-| [HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md) | Multi-platform analysis | 10 min | Enterprise architects |
-
----
-
-## The Bottom Line
-
-**For homogeneous K8s shops** (< 200 services, single cloud):
-- GitHub might work with custom engineering
-- Cost: ~$2M over 5 years
-- **But you're still missing rollback and verification**
-
-**For heterogeneous enterprises** (1000+ services, multi-platform):
-- GitHub costs MORE ($6.5M vs $6.0M)
-- Requires MORE people (4.5 FTE vs 2 FTE)
-- Delivers LESS capability (no rollback, no verification)
-- Creates MORE toil (2,500+ lines to maintain)
-
-**Stop trying to make GitHub Actions work for enterprise CD.**
-
-**Use the right tool for the job:**
-- ✅ GitHub Actions for CI
-- ✅ Harness CD for deployments
-
----
-
-## Next Steps
-
-### 1. Understand the Gaps
-**[→ Read the Demo](docs/DEMO.md)** to see exactly where GitHub Actions breaks
-
-### 2. See the Math
-**[→ Read Cost Analysis](docs/COST_ANALYSIS.md)** for granular cost breakdown
-
-### 3. Evaluate Harness
-- Schedule demo focused on YOUR deployment targets
-- Request POC for 10-20 services
-- Measure actual rollback time
-- Calculate prevented outage costs
-
-### 4. Calculate YOUR Cost
-**Questions to answer:**
-- How many FTE maintain deployment scripts today?
-- How many lines of custom deployment code?
-- What's your incident MTTR without rollback?
-- What does 1 hour of downtime cost?
-- How much time spent on "deployment infrastructure"?
-
-**[Use our cost model](docs/COST_ANALYSIS.md) with your numbers.**
-
----
-
-## Essential Reading
-
-**Start here** based on your role:
-
-- **👨‍💻 Engineer**: [DEMO.md](docs/DEMO.md) - See the technical gaps
-- **👔 Executive**: [EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md) - Understand the business case
-- **💰 Finance**: [COST_ANALYSIS.md](docs/COST_ANALYSIS.md) - Audit the math
-- **🏢 Enterprise**: [HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md) - Multi-platform reality check
-
-**Then watch the pipelines run live**: https://github.com/gregkroon/githubexperiment/actions
+**[Full demo →](docs/DEMO.md)**
 
 ---
 
 ## FAQ
 
-**Q: Is this GitHub Actions bashing?**
-No. GitHub Actions is excellent for CI. This shows it's not suitable for enterprise CD at heterogeneous scale.
+**Q: Is this GitHub bashing?**
+No. GitHub Actions is **excellent for CI**. This shows it's not suitable for enterprise **CD** at heterogeneous scale.
 
-**Q: Can't you just add Terraform/Vault/Argo?**
-Adding tools doesn't fix fundamental gaps (no rollback, no verification). And now you're maintaining 3+ tools instead of 1.
+**Q: Can't GitHub Enterprise Required Workflows prevent security bypasses?**
+Mostly yes. GitHub Enterprise prevents 4 of 5 bypass attempts (skip scan, continue-on-error, modify workflow, bypass branch protection). But ONE architectural gap remains: parallel execution allows deployment before Required Workflow completes. **[See detailed analysis →](docs/SECURITY_ENFORCEMENT.md)**
 
-**Q: What about vendor lock-in to Harness?**
+**Q: What about adding Terraform/Vault/Argo?**
+Adding tools doesn't fix fundamental gaps (no rollback, no verification, parallel execution). You're now maintaining 3+ tools instead of 1.
+
+**Q: Vendor lock-in to Harness?**
 You're choosing between:
-- Lock-in to 2,500+ lines of custom code + 4.5 FTE tribal knowledge (GitHub)
+- Lock-in to 2,500+ lines custom code + 4.5 FTE tribal knowledge (GitHub)
 - Lock-in to working platform with vendor support (Harness)
 
 Migrating FROM Harness is easier than rewriting unmaintainable custom code.
 
 **Q: Is the cost analysis realistic?**
-Conservative. Real FTE cost is $250k (we used $200k). Hidden costs likely higher. See [COST_ANALYSIS.md](docs/COST_ANALYSIS.md) for all assumptions.
+Conservative. Real FTE cost is $250k (we used $200k). All assumptions documented with 16 cited sources. **[Audit the math →](docs/COST_ANALYSIS.md)**
 
-**Q: Can GitHub Actions work for my use case?**
-Maybe. If you have:
-- < 50 services
-- 100% Kubernetes in single cloud
-- Unlimited platform engineering time
-- Can accept no rollback/verification
+**Q: What about K8s-only environments?**
+GitHub can work BUT you're still missing rollback and verification. And you're one platform mandate away from needing Harness anyway. **[See K8s analysis →](HETEROGENEOUS_REALITY.md)**
 
-**Then GitHub might work. But you're one multi-cloud mandate away from complete rebuild.**
+---
+
+## The Bottom Line
+
+**For homogeneous K8s shops** (< 200 services):
+GitHub might work with custom engineering (~$2M over 5 years)
+**But**: Still missing rollback, verification, orchestration
+
+**For heterogeneous enterprises** (1000+ services):
+GitHub costs MORE ($6.5M vs $6.0M) with LESS capability
+**Harness**: $420k cheaper + rollback + verification + orchestration
+
+**Stop building what Harness already has.**
+
+---
+
+## All Documentation
+
+| Doc | Purpose | Time | For |
+|-----|---------|------|-----|
+| **[DEMO.md](docs/DEMO.md)** | Hands-on walkthrough | 20 min | Engineers |
+| **[EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)** | Business case | 5 min | Leadership |
+| **[COST_ANALYSIS.md](docs/COST_ANALYSIS.md)** | Detailed costs | 25 min | Finance |
+| **[SECURITY_ENFORCEMENT.md](docs/SECURITY_ENFORCEMENT.md)** | Bypass analysis | 15 min | Security |
+| **[HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md)** | Multi-platform | 10 min | Architects |
 
 ---
 
 ## Contributing
 
-This is an independent analysis. Contributions welcome:
+Independent analysis. Contributions welcome:
 - Cost model improvements
-- Additional deployment scenarios
+- Deployment scenarios
 - Enterprise case studies
-- GitHub Actions workarounds we missed
+- Workarounds we missed
 
-**Open an issue or PR.**
+**Open an issue or PR**
 
 ---
 
 ## License
 
-MIT License - Use this analysis however helps your organization make informed decisions.
+MIT - Use this however helps your organization make informed decisions
 
 ---
 
 ## The Honest Conclusion
 
-**GitHub Actions is a CI tool pretending to be a CD platform.**
+**GitHub Actions: Excellent CI tool, poor CD platform**
 
-**For 95% of enterprises with heterogeneous infrastructure:**
-- Harness is cheaper ($500k over 5 years)
-- Harness requires fewer people (2.5 fewer FTE)
-- Harness delivers more capability (rollback, verification, orchestration)
-- Harness reduces operational burden (zero custom code vs 2,500+ lines)
+**For 95% of enterprises** (heterogeneous infrastructure):
+- Harness is $420k cheaper
+- Harness requires 2.5 fewer FTE
+- Harness has rollback (< 1 min vs 5-15 min)
+- Harness has verification (catches bad deploys)
+- Harness has orchestration (multi-service dependencies)
+- Harness has zero custom code (vs 2,500+ lines)
 
-**Stop wasting engineering time building what Harness already has.**
+**Use the right tool for the job:**
+- ✅ GitHub Actions for CI
+- ✅ Harness CD for deployments
 
-**[See the detailed proof →](docs/DEMO.md)**
-
-**[See the auditable math →](docs/COST_ANALYSIS.md)**
+**[See the proof →](docs/DEMO.md)** | **[See the math →](docs/COST_ANALYSIS.md)** | **[See security analysis →](docs/SECURITY_ENFORCEMENT.md)**
