@@ -15,22 +15,38 @@ We built a complete working implementation to find out.
 
 ## The Honest Answer
 
-**Yes, and it's likely CHEAPER than enterprise platforms - if you configure it properly.**
+**Yes - BUT whether it's cheaper than Harness depends on your deployment environment.**
 
-| Metric | GitHub (Naive) | GitHub (Proper) | GitHub + Argo CD | Harness |
-|--------|----------------|-----------------|------------------|---------|
-| Reusable workflows | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
-| User licenses | 1000 | **200** | **200** | **200** |
-| Custom code | 210k lines | **1,250 lines** | **0 lines** | **0 lines** |
-| Setup time | 32 weeks | **4 weeks** | **4 weeks** | 4 weeks |
-| Platform engineers | 2-4 FTE | **1.5 FTE** | **1.5 FTE** | 1.5 FTE |
-| **5-year cost** | **$5.9M** | **$2.1M** | **$1.8M** | **$5.7M** |
-| Vendor lock-in | None | None | None | **Yes** |
+⚠️ **CRITICAL**: This analysis distinguishes between:
+- **Homogeneous environments** (>80% Kubernetes): GitHub is significantly cheaper
+- **Heterogeneous environments** (<60% K8s, multi-cloud, VMs, serverless, on-prem): Harness may provide better TCO
 
-**Comparison vs Best Value (Argo CD)**:
-- GitHub-Proper: +$270k (13% more, but no new tools)
-- **Argo CD: Best value** ($1.8M, proven at Netflix scale, free)
-- Harness: +$3.9M (3.2× more expensive, vendor lock-in)
+### For Homogeneous K8s-Heavy Environments (>80% K8s)
+
+| Metric | GitHub (Naive) | GitHub (Proper) | Harness |
+|--------|----------------|-----------------|---------|
+| Reusable workflows | ❌ No | ✅ Yes | ✅ Yes |
+| User licenses | 1000 | **200** | **200** |
+| Custom code | 210k lines | **1,250 lines** | **0 lines** |
+| Setup time | 32 weeks | **4 weeks** | 4 weeks |
+| Platform engineers | 2-4 FTE | **1.5 FTE** | 1.5 FTE |
+| **5-year cost** | **$5.9M** | **$2.1M** | **$5.7M** |
+| Vendor lock-in | None | None | **Yes** |
+
+**Key insight (homogeneous)**: With proper configuration, GitHub is **$3.6M cheaper** than Harness.
+
+### For Heterogeneous Environments (<60% K8s)
+
+**The equation REVERSES** - see [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md) for full analysis:
+
+| Metric | GitHub (Proper) | Harness |
+|--------|-----------------|---------|
+| Deployment patterns | 6 custom (2,500 lines) | Vendor managed |
+| Platform engineers | **4.5 FTE** | **2 FTE** |
+| **5-year cost** | **$6.7M** | **$6.0M** |
+| Operational burden | **High** | **Medium** |
+
+**Key insight (heterogeneous)**: Harness is **$700k cheaper** AND reduces operational burden
 
 ---
 
@@ -280,39 +296,11 @@ Year 1 Total: $480,000
 
 **Savings vs naive**: $3,680,000 (64% less)
 
----
-
-### Scenario C: GitHub + Argo CD (Best Value)
-
-**What you get**:
-- ✅ GitHub Actions (CI)
-- ✅ Argo CD (CD) - FREE, open source
-- ✅ Argo Rollouts - canary, automatic rollback - FREE
-- ✅ GitOps - declarative, auditable
-- ✅ Battle-tested: Netflix, Adobe, Intuit, IBM, Red Hat
-
-**Year 1**:
-```
-GitHub Team (200 users, CI only): $50,000
-  └─ $4/user/month sufficient for CI
-Argo CD + Rollouts: $0
-  └─ Open source, CNCF graduated
-Setup and Integration: $60,000
-  └─ 3 weeks, one-time
-Platform Engineers (1.5 FTE): $300,000
-────────────────────────────────────────
-Year 1 Total: $410,000
-```
-
-**Years 2-5**: $350,000/year
-
-**5-Year Total**: **$1,810,000** ✅ (best value)
-
-**Savings vs Harness**: $3,900,000 (68% less)
+**Note**: This assumes homogeneous K8s-heavy (>80%) environment. For heterogeneous, see [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md).
 
 ---
 
-### Scenario D: GitHub + Harness (Most Expensive)
+### Scenario C: GitHub + Harness (Hybrid Approach)
 
 **What you get**:
 - ✅ GitHub Team (CI only)
@@ -354,41 +342,42 @@ Per Year: $1,070,000
 
 **5-Year Total**: **$5,530,000** ❌ (vendor platform)
 
-**Cost vs Argo CD**: +$3,720,000 (3.1× more expensive)
+**Cost vs GitHub-Proper**: +$3,450,000 (2.7× more expensive)
 
 ---
 
-### Honest Cost Comparison
+### Honest Cost Comparison (Homogeneous K8s-Heavy >80%)
 
-| Approach | Year 1 | Years 2-5 (each) | 5-Year Total | vs Best Value |
-|----------|--------|------------------|--------------|---------------|
-| **GitHub (naive)** | $1,280k | $1,120k | **$5,760,000** | +$3,950k ❌ |
-| **GitHub (proper)** | $480k | $400k | **$2,080,000** | +$270k |
-| **GitHub + Argo CD** | $410k | $350k | **$1,810,000** | Baseline ✅ |
-| **Harness** | $1,250k | $1,070k | **$5,530,000** | +$3,720k ❌ |
+| Approach | Year 1 | Years 2-5 (each) | 5-Year Total | vs GitHub-Proper |
+|----------|--------|------------------|--------------|------------------|
+| **GitHub (naive)** | $1,280k | $1,120k | **$5,760,000** | +$3,680k ❌ |
+| **GitHub (proper)** | $480k | $400k | **$2,080,000** | Baseline ✅ |
+| **Harness** | $1,250k | $1,070k | **$5,530,000** | +$3,450k ❌ |
 
 ### Key Insights
 
-**1. User Count Matters More Than Service Count**
+**1. Environment Homogeneity Matters Most** ⚠️
+- ✅ Homogeneous (>80% K8s): GitHub saves $3.5M
+- ⚠️ Moderate (60-80% K8s): GitHub saves $2.5M but harder
+- ❌ Heterogeneous (<60% K8s): Harness saves $700k + operational burden
+- **See**: [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md)
+
+**2. User Count Matters More Than Service Count**
 - ❌ Naive: 1000 licenses ($400k/year)
 - ✅ Realistic: 200 engineers ($50k/year)
 - **Savings**: $350k/year = $1.75M over 5 years
 
-**2. Reusable Workflows Eliminate Duplication**
+**3. Reusable Workflows Eliminate Duplication**
 - ❌ Naive: 250 lines × 1000 = 250,000 lines
 - ✅ Proper: 250 lines + (1 × 1000) = 1,250 lines
 - **Savings**: 99.5% less code to maintain
 
-**3. Open Source CD Tools Are Battle-Tested and Free**
-- Argo CD: Used by Netflix, Adobe, Intuit, IBM
-- CNCF Graduated Project (proven governance)
-- Free forever (no vendor pricing changes)
-- **Savings**: $3.7M vs Harness over 5 years
-
-**4. Vendor Platforms Are 3× More Expensive**
-- Harness: $5.5M
-- Argo CD: $1.8M
-- **Difference**: $3.7M (206% premium for vendor convenience)
+**4. Heterogeneous Adds Hidden Costs**
+- Multiple deployment targets (K8s, VMs, ECS, Lambda, on-prem)
+- 6 deployment patterns = 2,500 lines custom code
+- Platform team grows from 1.5 FTE → 4.5 FTE
+- Hidden costs: incidents, silos, cross-platform orchestration
+- **Total**: GitHub $6.7M vs Harness $6M at <60% K8s
 
 ---
 
@@ -476,69 +465,68 @@ Per Year: $1,070,000
 ---
 
 ### For 200-500 Services (Public Companies)
-✅ **GitHub + Argo CD (Recommended)**
+✅ **GitHub-Native (Recommended for K8s-heavy)**
 
 **Why**:
-- GitHub Actions (CI) - excellent, native integration
-- Argo CD (CD) - FREE, battle-tested, GitOps
-- No vendor lock-in, proven at scale
+- Reusable workflows eliminate duplication
+- OIDC for cloud providers
+- Terraform for automation
 - **Save $3-4M vs Harness**
 
 **Cost**: $1.5-2M over 5 years
 **Team**: 1-2 FTE platform engineers
 
-**Alternative**: GitHub-native if team prefers fewer tools (+$300k)
-
 **Don't choose Harness unless**: Budget isn't a constraint and you value vendor support over cost
 
 ---
 
-### For 500-1000+ Services (Enterprise, Netflix Scale)
-⚠️ **Evaluate All Options**
+### For 500-1000+ Services (Enterprise Scale)
 
-**Option A: GitHub + Argo CD** (Recommended for most)
+⚠️ **CRITICAL**: Your deployment environment determines the best choice.
+
+**Option A: GitHub-Native** (For K8s-heavy >80%)
 - Cost: $2-3M over 5 years
-- Proven: Netflix, Adobe, Intuit
 - No vendor lock-in
-- **Best value**
+- **Best value for homogeneous**
+- Team: 1.5-2 FTE
 
-**Option B: Build Custom Platform**
-- Cost: $3-5M over 5 years
-- Full control, tailored to needs
-- Requires significant engineering resources
-- Only if you have the team
-
-**Option C: GitHub + Harness**
-- Cost: $5-6M over 5 years
-- Vendor support, ML features
-- **3× more expensive than Argo**
-- Only if cost isn't a factor
+**Option B: Harness** (For heterogeneous <60% K8s)
+- Cost: $6M over 5 years
+- Vendor handles all deployment targets (K8s, VMs, ECS, Lambda, on-prem)
+- **Better value than GitHub-native ($6.7M)**
+- Team: 2 FTE (vs 4.5 for GitHub)
+- See: [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md)
 
 **Decision factors**:
-- Budget constraints? → Argo CD
-- Want full control? → Custom platform
-- Want vendor support at any cost? → Harness
-
-**Most companies choose**: GitHub + Argo CD (best value, proven, no lock-in)
+- >80% K8s? → GitHub-native (save $3M)
+- 60-80% K8s? → Evaluate (GitHub saves $2.5M but harder)
+- <60% K8s? → Harness (save $700k + operational burden)
 
 ---
 
 ## Decision Framework
 
 ### Choose GitHub-Native If:
-- ✅ You have < 50 repositories
-- ✅ You have 2-4 available platform engineers
-- ✅ You can build and maintain custom services
-- ✅ Manual code review is acceptable
-- ✅ Parallel execution gap is acceptable risk
+- ✅ Your environment is homogeneous (>80% Kubernetes)
+- ✅ You have 1.5-2 available platform engineers
+- ✅ You can use reusable workflows properly
+- ✅ You want to avoid vendor lock-in
+- ✅ Cost savings matter ($3.5M over 5 years)
 
-### Choose Hybrid (GitHub CI + Harness CD) If:
-- ✅ You have 1000+ repositories
-- ✅ You want lower total cost of ownership
-- ✅ You need locked templates (governance)
-- ✅ You need sequential enforcement (security before deploy)
-- ✅ You want one-click rollback
-- ✅ You want to avoid custom engineering
+### Choose Harness If:
+- ✅ Your environment is heterogeneous (<60% K8s)
+- ✅ You have multiple deployment targets (K8s, VMs, ECS, Lambda, on-prem)
+- ✅ You have 1000+ services across multi-cloud
+- ✅ You want to reduce operational burden (2 FTE vs 4.5 FTE)
+- ✅ You need vendor support/SLA
+- ✅ You accept vendor lock-in for operational efficiency
+
+### The Key Question:
+**"What percentage of our services run on Kubernetes?"**
+
+- **>80% K8s**: GitHub saves $3.5M
+- **60-80% K8s**: GitHub saves $2.5M (but higher burden)
+- **<60% K8s**: Harness saves $700k + reduces burden
 
 ---
 
@@ -577,6 +565,10 @@ Per Year: $1,070,000
 
 **GitHub can do enterprise CI/CD at 1000+ service scale.**
 
+**But the cost equation depends on YOUR deployment environment.**
+
+### For Homogeneous K8s-Heavy Environments (>80% K8s)
+
 **When configured properly**:
 - ✅ Reusable workflows (not duplicated code)
 - ✅ OIDC (not manual secrets)
@@ -584,21 +576,53 @@ Per Year: $1,070,000
 - ✅ Proper governance (Required Workflows + CODEOWNERS)
 
 **The numbers**:
-- GitHub-Proper: $2.1M over 5 years
-- **GitHub + Argo CD: $1.8M** (best value)
-- Harness: $5.5M over 5 years (3× more expensive)
-
-**The gap is NOT operational efficiency.**
+- GitHub-Proper: **$2.1M** over 5 years
+- Harness: $5.5M over 5 years
+- **Savings: $3.4M with GitHub**
 
 **The gap is:**
 1. **Configuration expertise** (reusable workflows vs duplication)
 2. **License understanding** (200 users vs 1000 licenses)
-3. **Open source awareness** (Argo CD exists and is free)
-4. **Vendor marketing** (Harness claims you need them)
+3. **Vendor marketing** (Harness claims you need them - you don't)
 
-**For most companies**: GitHub + Argo CD is the optimal choice
+**Recommendation**: Use GitHub-native, avoid vendor lock-in
 
-**Vendor platforms are expensive convenience**, not technical necessity
+---
+
+### For Heterogeneous Environments (<60% K8s)
+
+**The reality**:
+- Multiple deployment targets (K8s, VMs, ECS, Lambda, Azure Functions, on-prem)
+- 6 deployment patterns = 2,500 lines custom code
+- Platform team needs 4.5 FTE (not 1.5)
+- Hidden costs: incidents, silos, cross-platform orchestration
+
+**The numbers**:
+- GitHub-Proper: **$6.7M** over 5 years (4.5 FTE, high burden)
+- Harness: **$6.0M** over 5 years (2 FTE, vendor managed)
+- **Savings: $700k with Harness + reduced operational burden**
+
+**The gap is:**
+1. **Deployment target heterogeneity** (K8s vs multi-platform)
+2. **Operational complexity** (maintaining 6 deployment patterns)
+3. **Platform team burden** (4.5 FTE vs 2 FTE)
+4. **Vendor integration** (Harness handles all targets)
+
+**Recommendation**: Harness provides better TCO for truly heterogeneous enterprises
+
+**See detailed analysis**: [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md)
+
+---
+
+### The Key Takeaway
+
+**The answer depends on environment composition, not company size:**
+
+| Environment | GitHub Cost | Harness Cost | Recommendation |
+|-------------|-------------|--------------|----------------|
+| **K8s-heavy (>80%)** | $2.1M | $5.5M | ✅ GitHub |
+| **Moderate (60-80%)** | $3.5M | $6.0M | ⚠️ Evaluate |
+| **Heterogeneous (<60%)** | $6.7M | $6.0M | ✅ Harness |
 
 ---
 
