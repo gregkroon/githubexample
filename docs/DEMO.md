@@ -3,13 +3,13 @@
 **Watch GitHub Actions fail at enterprise deployment in real-time.**
 
 **Time**: 20 minutes
-**Outcome**: See the 6 critical gaps firsthand
+**Outcome**: See the 7 critical gaps firsthand
 
 ---
 
 ## What You'll See
 
-Walk through a **real, working GitHub Actions implementation** and experience the six gaps that make it unsuitable for enterprise CD:
+Walk through a **real, working GitHub Actions implementation** and experience the seven gaps that make it unsuitable for enterprise CD:
 
 1. ❌ **Configuration sprawl** (3,000 environments manually configured)
 2. ❌ **No rollback** (redeploy takes 5-15 min vs Harness < 1 min)
@@ -17,6 +17,7 @@ Walk through a **real, working GitHub Actions implementation** and experience th
 4. ❌ **No deployment verification** (bad deploys reach production)
 5. ❌ **No multi-service orchestration** (can't enforce order)
 6. ❌ **No database DevOps** (custom Liquibase/Flyway, no safe rollback)
+7. ❌ **No release management** (no calendaring, blackout windows, manual gates)
 
 **All pipelines run live**: https://github.com/gregkroon/githubexperiment/actions
 
@@ -351,6 +352,203 @@ Deploy backend API with new database schema. How do you:
 
 ---
 
+## Problem 7: No Release Management
+
+### The Scenario
+Enterprise deployment governance requirements:
+- **Blackout windows**: No deployments on Friday after 5pm, holidays, tax season
+- **Change board approval**: Manual approval from CAB for production deployments
+- **Multi-service release coordination**: Deploy 10 microservices together with manual gates
+- **Deployment calendar**: Visibility into what's deploying when across 1000 services
+- **Manual activities**: Integrate manual steps (database backups, vendor notifications)
+
+### Try It
+**GitHub Actions**: ❌ **No native release management**
+
+### What You Must Build
+
+**Custom release management system**:
+
+#### 1. Deployment Calendar/Blackout Windows
+```yaml
+# Each workflow needs custom calendar logic
+- name: Check Deployment Window
+  run: |
+    # Check if Friday after 5pm
+    if [[ $(date +%u) -eq 5 ]] && [[ $(date +%H) -ge 17 ]]; then
+      echo "Friday evening - deployment blocked"
+      exit 1
+    fi
+
+    # Check holidays (must maintain holiday calendar)
+    if grep -q "$(date +%Y-%m-%d)" holidays.txt; then
+      echo "Holiday - deployment blocked"
+      exit 1
+    fi
+
+    # Check blackout periods (tax season, etc)
+    # Custom logic for each business requirement
+```
+
+**Problems**:
+- ❌ Must duplicate across 1000 workflows
+- ❌ Holiday calendar maintenance burden
+- ❌ Configuration drift (some repos forget to add check)
+- ❌ No centralized visibility
+
+#### 2. Manual Approval Gates
+```yaml
+# GitHub Environments provide basic approvals
+# BUT: No integration with external systems
+environment: production  # Requires manual click in GitHub UI
+
+# Problems:
+# ❌ No integration with ServiceNow/Jira change boards
+# ❌ No approval delegation
+# ❌ No approval workflows (multi-level approvals)
+# ❌ Approvals buried in GitHub UI
+```
+
+#### 3. Cross-Service Release Orchestration
+```yaml
+# Want to deploy 10 services together with manual gates between?
+# ❌ IMPOSSIBLE in GitHub Actions
+
+# Workaround: Manual coordination
+# 1. Deploy service-1, wait for manual verification
+# 2. Deploy service-2, wait for manual verification
+# 3. Repeat 8 more times
+# 4. Pray nothing goes wrong
+
+# OR build custom orchestrator (12+ weeks)
+```
+
+#### 4. Manual Activity Integration
+```yaml
+# Want to integrate manual steps?
+# - Take database backup before schema migration
+# - Notify vendor of upcoming deployment
+# - Confirm load balancer health after deploy
+
+# GitHub Actions:
+# ❌ No manual step support
+# ❌ Can't pause workflow for human action
+# ❌ Can't integrate with external ticketing systems
+# ❌ Can't track manual activity completion
+```
+
+### What You Must Build
+**Custom release orchestration platform**:
+- Deployment calendar service
+- Holiday/blackout window management
+- Multi-service release coordinator
+- Manual approval workflow engine
+- External system integrations (ServiceNow, Jira, PagerDuty)
+- Release visibility dashboard
+
+**Build**: 8-12 weeks
+**Maintenance**: 8-12 hrs/week
+**Risk**: Friday 5pm production disasters
+
+### With Harness Release Management
+
+#### ✅ Deployment Calendaring
+- Define blackout windows centrally (Friday 5pm, holidays, tax season)
+- Apply to all services instantly
+- Auto-block deployments during blackout periods
+- Maintain holiday calendar once
+
+#### ✅ Manual Approval Gates
+- Native ServiceNow/Jira integration
+- Change board approval workflows
+- Multi-level approval chains
+- Approval delegation
+- External approver notifications
+
+#### ✅ Cross-Service Release Orchestration
+```
+Release: "Q1 Commerce Update"
+├─ Stage 1: Database migrations
+│  └─ Manual gate: DBA approval
+├─ Stage 2: Backend services (parallel)
+│  ├─ payment-service
+│  ├─ user-service
+│  └─ order-service
+│  └─ Manual gate: Smoke test verification
+├─ Stage 3: Frontend services
+│  ├─ web-app
+│  └─ mobile-api
+│  └─ Manual gate: QA sign-off
+└─ Stage 4: Cache invalidation
+   └─ Manual activity: Notify support team
+```
+
+#### ✅ Manual Activity Integration
+- Pause deployment for manual steps
+- Integrate with ticketing systems
+- Track manual activity completion
+- Timeout handling
+- Audit trail of all manual actions
+
+#### ✅ Release Visibility
+- Centralized deployment calendar
+- See all scheduled deployments across 1000 services
+- Filter by environment, team, time window
+- Identify deployment conflicts
+- Release impact analysis
+
+### The Enterprise Reality
+
+**Common scenarios GitHub Actions CANNOT handle**:
+
+1. **Holiday Freeze**: "No deployments December 15 - January 5"
+   - GitHub: Update 1000 workflows manually
+   - Harness: Set blackout window once
+
+2. **Multi-Service Release**: Deploy 10 microservices with manual gates
+   - GitHub: Manual coordination, error-prone
+   - Harness: Drag-and-drop release pipeline
+
+3. **Change Board Approval**: Production deploy needs CAB approval
+   - GitHub: Click approve in GitHub UI (not integrated)
+   - Harness: ServiceNow integration, automated workflow
+
+4. **Manual Database Backup**: Before schema migration
+   - GitHub: Can't pause workflow for manual action
+   - Harness: Manual activity step with timeout
+
+5. **Friday 5pm Block**: Prevent weekend incidents
+   - GitHub: Custom calendar logic in each workflow
+   - Harness: Centralized deployment window policy
+
+### Real-World Incident
+
+**What happens without release management**:
+
+```
+Friday 5:30pm: Developer pushes payment-service update
+GitHub Actions: ✅ All checks pass, deploying to production
+5:45pm: Deployment completes
+6:00pm: Error rates spike to 15%
+6:15pm: On-call paged, team scrambling
+6:30pm: Realize payment processor integration broken
+7:00pm: Trying to rollback (14 min redeploy process)
+7:15pm: Rollback fails (dependency on database migration)
+8:00pm: All hands on deck, weekend ruined
+```
+
+**With Harness**:
+```
+Friday 5:30pm: Developer pushes payment-service update
+Harness: ❌ Deployment blocked (Friday evening blackout window)
+Message: "Deployments blocked after 5pm Friday. Schedule for Monday 9am."
+Weekend: Safe
+```
+
+**Conclusion**: ❌ **8-12 weeks to build release management + ongoing operational risk**
+
+---
+
 ## The Complete Picture
 
 | Capability | GitHub | Harness | Gap |
@@ -361,12 +559,13 @@ Deploy backend API with new database schema. How do you:
 | **Verification** | Build it (6 weeks) | Built-in ML | 6 weeks + ongoing |
 | **Orchestration** | Build it (12 weeks) | Built-in | 12 weeks + ongoing |
 | **Database DevOps** | Custom Liquibase (4 weeks) | Native with rollback | 200,000 lines DB code |
+| **Release Management** | Build it (10 weeks) | Native calendaring/gates | Friday 5pm disasters |
 
 **Total investment to match Harness**:
-- **36 weeks build**
-- **35-54 hrs/week** ongoing maintenance
+- **46 weeks build**
+- **43-66 hrs/week** ongoing maintenance
 - **202,500+ lines** custom code
-- **4.5 FTE** vs 2 FTE
+- **5 FTE** vs 2 FTE
 
 **[See full cost breakdown →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
@@ -377,12 +576,12 @@ Deploy backend API with new database schema. How do you:
 | | GitHub Actions | Harness CD |
 |---|---|---|
 | **Licenses** | $250k (5yr) | $3,230k (5yr) |
-| **Custom dev** | $975k | $300k (Year 1 only) |
-| **Platform team** | $4,500k (4.5 FTE) | $2,000k (2 FTE) |
-| **Hidden costs** | $850k | $0 |
-| **TOTAL (5yr)** | **$6,625k** | **$5,530k** |
+| **Custom dev** | $1,100k | $300k (Year 1 only) |
+| **Platform team** | $5,000k (5 FTE) | $2,000k (2 FTE) |
+| **Hidden costs** | $1,000k | $0 |
+| **TOTAL (5yr)** | **$7,350k** | **$5,530k** |
 
-**Harness: $1,095k cheaper + 10× capability**
+**Harness: $1,820k cheaper + 10× capability**
 
 **[See detailed workings →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
@@ -408,9 +607,10 @@ Deploy backend API with new database schema. How do you:
 - ❌ Heterogeneous = 202,500+ lines custom code
 - ❌ No orchestration (complex deployments fail)
 - ❌ No database DevOps (200,000 lines DB deployment code)
+- ❌ No release management (Friday 5pm disasters, no blackout windows)
 - ❌ Configuration sprawl (1,000 hours manual work)
 
-**Don't waste 36 weeks building what Harness has**
+**Don't waste 46 weeks building what Harness has**
 
 ---
 
@@ -521,7 +721,8 @@ cd githubexperiment
 - ❌ Configuration doesn't scale (1,000 hours manual)
 - ❌ No rollback (14× slower MTTR)
 - ❌ Heterogeneous = 202,500+ lines custom code
-- ❌ Must build verification, orchestration & DB DevOps (36 weeks)
+- ❌ Must build verification, orchestration, DB DevOps & release management (46 weeks)
+- ❌ No deployment governance (Friday 5pm production disasters)
 - ❌ Platform team burns out maintaining workarounds
 
 **For enterprise CD**: Stop building what Harness already has.
