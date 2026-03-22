@@ -182,6 +182,294 @@ GitHub Actions workflows run with **highly privileged credentials**:
 
 ---
 
+## The Stateless Push Trap: Why CI Runners Cannot Be CD Platforms
+
+### GitHub Actions Is a CI Tool, Not a CD Platform
+
+**The Fundamental Architecture Problem**: GitHub Actions is a **stateless, ephemeral task runner** designed for Continuous Integration (build, test, scan). Using it for Continuous Delivery forces imperative push-based deployments with no state management.
+
+#### What "Stateless" Means for Deployment
+
+**GitHub Actions runner lifecycle**:
+```yaml
+1. Spin up ephemeral runner (fresh Ubuntu VM)
+2. Execute workflow steps sequentially
+3. Runner terminates, all state discarded
+4. No memory of what was deployed, where, or when
+```
+
+**Consequences**:
+- ❌ No deployment state tracking
+- ❌ No artifact versioning across environments
+- ❌ No rollback history
+- ❌ No deployment topology understanding
+- ❌ Runner dies mid-deploy = permanently broken state
+
+#### The "God-Mode" Runner Problem
+
+Because runners are stateless and must **push** changes to production, they require **highly privileged credentials**:
+
+```yaml
+# Every deployment workflow needs:
+- AWS OIDC token with production AssumeRole
+- Kubernetes admin service account (cluster-wide)
+- RDS admin credentials (for schema migrations)
+- S3 bucket write permissions
+- Lambda function update permissions
+- Secrets manager read/write
+
+# All in runner memory, all vulnerable to compromise
+```
+
+**Attack surface**:
+- Compromised marketplace action = instant access to all credentials
+- Runner introspection = credential harvesting
+- **One malicious step = full infrastructure breach**
+
+#### The Composite Release Nightmare
+
+**Scenario**: Deploy 4-tier application
+1. **S3** - React SPA frontend
+2. **EKS** - Spring Boot API backend
+3. **Lambda** - Event processor
+4. **RDS** - Database schema migration (Flyway)
+
+**GitHub Actions approach**: Imperative bash scripts
+```yaml
+jobs:
+  deploy-composite-release:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Deploy database migration
+      - name: Run Flyway Migration
+        run: |
+          flyway migrate -url=${{ secrets.RDS_URL }}
+          # ❌ No state tracking - did this succeed?
+          # ❌ No automatic rollback on failure
+          # ❌ If runner dies here, state unknown
+
+      # Step 2: Deploy EKS backend
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl rollout status deployment/api
+          # ❌ What if this fails? Database already migrated!
+          # ❌ Must manually write rollback logic
+
+      # Step 3: Deploy Lambda
+      - name: Deploy Lambda
+        run: |
+          aws lambda update-function-code --function-name processor
+          # ❌ Fails due to IAM error
+          # ❌ EKS and RDS already deployed
+          # ❌ No automatic rollback coordination
+
+      # Step 4: Deploy S3 frontend
+        if: success()  # ⚠️ Doesn't run because Lambda failed
+        run: |
+          aws s3 sync build/ s3://frontend/
+```
+
+**What actually happened**:
+- ✅ Database migrated (cannot undo schema changes)
+- ✅ EKS backend deployed (new version running)
+- ❌ Lambda failed (IAM error)
+- ❌ S3 frontend not deployed (skipped due to failure)
+
+**System state**: **Permanently broken**
+- Backend expects new schema (deployed)
+- Event processor still on old version (failed)
+- Frontend not updated (skipped)
+- **No coordinated rollback capability**
+
+#### The Manual Rollback Hell
+
+**To recover, platform engineer must**:
+
+```bash
+# 1. Manually rollback EKS (hope kubectl works)
+kubectl rollout undo deployment/api
+kubectl rollout status deployment/api  # Poll manually
+
+# 2. Manually rollback database (hope you have rollback script)
+flyway undo -url=$RDS_URL
+# ⚠️ What if undo script doesn't exist?
+# ⚠️ What if schema change is irreversible (column drop)?
+
+# 3. Fix Lambda IAM issue
+aws iam attach-role-policy ...  # Debug IAM policy
+
+# 4. Re-run entire deployment (hope it works this time)
+# 5. TOTAL TIME: 30-60 minutes (production broken)
+```
+
+**With state-aware CD platform**:
+```yaml
+# One-click rollback to last known good state
+# Platform knows:
+# - What was deployed where
+# - Which artifacts to rollback to
+# - Correct rollback order (reverse of deploy)
+# - State verification after rollback
+
+# TOTAL TIME: < 1 minute
+```
+
+#### Why "if: failure()" Doesn't Save You
+
+**Naive attempt at automatic rollback**:
+```yaml
+- name: Deploy Lambda
+  id: lambda
+  run: aws lambda update-function-code ...
+
+- name: Rollback EKS if Lambda Failed
+  if: failure() && steps.lambda.conclusion == 'failure'
+  run: |
+    kubectl rollout undo deployment/api
+    # ⚠️ What if kubectl command fails?
+    # ⚠️ What if network drops mid-rollback?
+    # ⚠️ If this step fails, NO RETRY LOGIC
+```
+
+**Problems**:
+- `if: failure()` is not transactional
+- Runner can die during rollback step
+- No rollback verification
+- No rollback of rollback (if rollback fails)
+- **Must write custom error handling for every deployment target**
+
+**Result**: 1000 services × 6 deployment targets × custom rollback logic = **maintenance nightmare**
+
+#### The State Management You Must Build
+
+**To make GitHub Actions behave like a CD platform, you must**:
+
+1. **Build deployment state store**
+   ```python
+   # Custom service to track:
+   - What version deployed to which environment
+   - When it was deployed
+   - Who approved it
+   - Current rollback target for each service
+   # Build time: 4-6 weeks
+   # Maintenance: 6 hrs/week
+   ```
+
+2. **Build coordinated rollback orchestrator**
+   ```python
+   # Custom service to:
+   - Understand service dependencies
+   - Rollback in reverse order
+   - Verify each rollback step
+   - Handle partial rollback failures
+   # Build time: 12 weeks
+   # Maintenance: 10 hrs/week
+   ```
+
+3. **Build deployment verification**
+   ```python
+   # Custom service to:
+   - Query Prometheus/DataDog after deploy
+   - Detect anomalies (error rate spike)
+   - Trigger automatic rollback
+   # Build time: 6 weeks
+   # Maintenance: 6 hrs/week
+   ```
+
+**Total**: 22 weeks build + 22 hrs/week maintenance = **You're building a CD platform from scratch**
+
+#### Harness: State-Aware CD Control Plane
+
+**Architecture**:
+```
+┌─────────────────────────────────────────────────┐
+│  Harness Control Plane (SaaS)                   │
+│  ├─ Deployment State Store (Persistent)         │
+│  ├─ Artifact Version Tracking                   │
+│  ├─ Rollback History (Last 50 deployments)      │
+│  ├─ Service Dependency Graph                    │
+│  └─ Policy Engine (OPA)                         │
+└─────────────────────────────────────────────────┘
+         │
+         │ Outbound HTTPS (poll-based)
+         ▼
+┌─────────────────────────────────────────────────┐
+│  Harness Delegate (In VPC)                      │
+│  ├─ No inbound connections                      │
+│  ├─ Polls control plane for tasks               │
+│  ├─ Executes with least-privilege IAM           │
+│  └─ Reports state back to control plane         │
+└─────────────────────────────────────────────────┘
+```
+
+**Composite release with state management**:
+```yaml
+pipeline:
+  stages:
+    - stage:
+        name: Database Migration
+        spec:
+          service: rds-schema
+          execution:
+            - step: FlywayMigrate
+              rollbackSteps:  # Native rollback
+                - FlywayUndo
+
+    - stage:
+        name: Backend API
+        dependencies: [Database Migration]  # Enforced order
+        spec:
+          service: spring-api
+          execution:
+            - step: K8sRollingDeploy
+              rollbackSteps:  # Native rollback
+                - K8sRollback
+
+    - stage:
+        name: Event Processor
+        dependencies: [Backend API]
+        spec:
+          service: lambda-processor
+          execution:
+            - step: LambdaDeploy
+              # Fails here
+              rollbackSteps:  # Never executes
+
+# Harness detects failure, automatically rolls back:
+# 1. Backend API (kubectl rollout undo)
+# 2. Database Migration (flyway undo)
+# 3. All in reverse dependency order
+# 4. Verifies each rollback step
+# 5. Reports final state to control plane
+
+# TOTAL TIME: < 1 minute
+# STATE: Rolled back to last known good
+```
+
+**Security advantages**:
+- ✅ **Delegates poll outbound** (no inbound attack surface)
+- ✅ **Least-privilege IAM** (scoped per delegate, not god-mode)
+- ✅ **Credentials never in runner memory** (stored in secrets manager, injected per-step)
+- ✅ **Governed templates** (no marketplace exposure)
+- ✅ **Policy enforcement** (OPA blocks unapproved deployments)
+
+#### The Executive Reality
+
+**"Can you afford 30-60 minute MTTR because GitHub Actions has no deployment state?"**
+
+| Outage Cost | GitHub Actions MTTR | Harness MTTR | Cost Difference |
+|-------------|---------------------|--------------|-----------------|
+| $5M/hour | 30 min = $2.5M | 1 min = $83k | **$2.42M per incident** |
+| 99.99% SLA | 30 min = 58% of annual budget | 1 min = 2% of budget | **29× improvement** |
+
+**One production incident pays for Harness.**
+
+**[See ADR-001: Imperative Rollback Nightmare →](docs/ADR-001-the-imperative-rollback-nightmare.md)**
+**[See ADR-002: God-Mode Runners & Supply Chain →](docs/ADR-002-supply-chain-and-god-mode-runners.md)**
+
+---
+
 ## The Cost Reality
 
 ### GitHub Actions (5-Year TCO)
