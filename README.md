@@ -1,6 +1,6 @@
 # Can You Build Enterprise CI/CD with GitHub?
 
-**Yes. And with proper configuration, it costs less than Harness.**
+**Yes. But whether it costs less than Harness depends on your environment.**
 
 This repository compares:
 - **GitHub-native** (using built-in features properly)
@@ -10,7 +10,9 @@ We show:
 - ✅ What works (complete CI/CD with approval gates, SBOM attestation, security scanning)
 - ⚠️ What's genuinely hard (one-click rollback, advanced deployment strategies)
 - 💡 How to use GitHub properly (reusable workflows, OIDC, IaC)
-- 💰 Honest cost comparison (GitHub $2.1M vs Harness $5.5M over 5 years)
+- 💰 Honest cost comparison that depends on your deployment reality:
+  - **Homogeneous (K8s-heavy)**: GitHub $2.1M vs Harness $5.5M → **GitHub saves $3.4M**
+  - **Heterogeneous (multi-cloud, VMs, serverless, on-prem)**: GitHub $6.7M vs Harness $6M → **Harness saves $700k**
 
 ---
 
@@ -52,12 +54,35 @@ We show:
 **You'll learn**:
 - What GitHub does well (and what it doesn't)
 - Realistic cost analysis (corrected for reusable workflows)
-- Open source alternatives (Argo CD, Flux - free)
-- When GitHub is cheaper (< 500 services)
-- When platforms make sense (500+ services)
+- When GitHub is cheaper (homogeneous environments)
+- When platforms make sense (heterogeneous at scale)
 - Recommendations by actual company size
 
 **Best for**: Leadership making budget decisions
+
+---
+
+### 3. Understand Heterogeneous Reality (10 min) ⚠️
+
+**[→ Read the Heterogeneous Enterprise Reality Check](HETEROGENEOUS_REALITY.md)**
+
+**CRITICAL**: If your enterprise has:
+- Multiple clouds (AWS, Azure, GCP)
+- Multiple deployment targets (K8s, VMs, ECS, Lambda, on-prem)
+- < 60% Kubernetes workloads
+- 1000+ services
+
+**Then the cost equation REVERSES**:
+- GitHub-native: $6.7M (4.5 FTE platform team, high operational burden)
+- Harness: $6M (2 FTE, vendor managed)
+
+**You'll see**:
+- Why heterogeneous adds 2,500 lines of custom deployment code
+- Why you need 4.5 FTE (not 1.5) for multi-cloud/multi-platform
+- Hidden costs: incident response, knowledge silos, cross-platform orchestration
+- When Harness actually provides better TCO value
+
+**Best for**: Enterprises with truly heterogeneous environments
 
 ---
 
@@ -129,6 +154,10 @@ jobs:
 
 ### The Honest Cost Comparison (1000 Services, 200 Engineers)
 
+⚠️ **IMPORTANT**: These costs assume a **homogeneous Kubernetes-heavy environment (>80% K8s)**. For heterogeneous environments (multiple clouds, VMs, serverless, on-prem), see [HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md).
+
+---
+
 **Scenario A: GitHub-Native (Naive Implementation)**
 | | Year 1 | Years 2-5 (each) |
 |---|--------|------------------|
@@ -172,7 +201,7 @@ jobs:
 
 ---
 
-### Honest Comparison
+### Honest Comparison (Homogeneous K8s-Heavy Environments)
 
 | Approach | 5-Year Cost | vs GitHub-Proper |
 |----------|-------------|------------------|
@@ -180,7 +209,9 @@ jobs:
 | **GitHub-Native (proper)** | **$2,080,000** | Baseline ✅ |
 | **Harness (hybrid)** | **$5,530,000** | +$3,450k ❌ |
 
-**Key insight**: With proper configuration, GitHub is **$3.45M cheaper** than Harness over 5 years.
+**Key insight (K8s-heavy)**: With proper configuration, GitHub is **$3.45M cheaper** than Harness over 5 years.
+
+**⚠️ BUT** for heterogeneous environments (<60% K8s), the equation reverses. See [HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md).
 
 ---
 
@@ -216,19 +247,37 @@ jobs:
   - 💰 Cost: **$4-5M over 5 years**
   - **Tradeoff**: +$2.5M for convenience
 
-**500-1000+ services** (Enterprise scale):
-- ✅ **GitHub-Native** (still recommended for most)
+**500-1000+ services** (Enterprise scale - K8s-heavy):
+- ✅ **GitHub-Native** (recommended for K8s-heavy >80%)
   - Use all GitHub Enterprise features
   - Reusable workflows are critical
   - Terraform/Pulumi for everything
   - 💰 Cost: **$2-3M over 5 years**
   - 👥 Team: 1.5-2 FTE platform engineers
 
-- ⚠️ **Harness** (evaluate carefully)
+- ⚠️ **Harness** (only if budget isn't a constraint)
   - 💰 Cost: **$5-6M over 5 years**
-  - **Question**: Is vendor convenience worth $3M?
+  - **Question**: Is vendor convenience worth $3M premium?
+
+**1000+ services** (Heterogeneous enterprise - <60% K8s):
+- ⚠️ **GitHub-Native becomes expensive**
+  - Multiple deployment targets (K8s, VMs, ECS, Lambda, on-prem)
+  - Need 4.5 FTE platform team (not 1.5)
+  - 2,500+ lines custom deployment code across 6 patterns
+  - Hidden costs: incidents, silos, cross-platform orchestration
+  - 💰 Cost: **$6.7M over 5 years**
+  - 👥 Team: 4.5 FTE platform engineers
+
+- ✅ **Harness provides better value**
+  - Vendor handles all deployment target integrations
+  - Unified interface reduces complexity
+  - 💰 Cost: **$6M over 5 years**
+  - 👥 Team: 2 FTE
+  - **Saves**: $700k + reduces operational burden
+  - **See**: [HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md)
 
 **Key factors for GitHub-native success**:
+- **Environment homogeneity** (>80% K8s is ideal, <60% K8s gets expensive)
 - **User count matters** (200 engineers ≠ 1000 licenses)
 - **Reusable workflows** (write once, not 1000 times)
 - **OIDC** (eliminate AWS/Azure/GCP secrets)
@@ -236,7 +285,8 @@ jobs:
 - **Required Workflows** (enforce governance)
 
 **When to choose Harness**:
-- Budget isn't a constraint AND
+- **Truly heterogeneous** (multi-cloud, VMs, serverless, on-prem) AND 1000+ services
+- OR budget isn't a constraint AND
 - You value vendor support AND
 - You need ML-based verification AND
 - You accept vendor lock-in
@@ -356,15 +406,31 @@ jobs:
 **The gap is:**
 1. **Configuration expertise** - must use reusable workflows properly
 2. **Feature gaps** - one-click rollback, canary deployments not built-in
-3. **Vendor marketing** - Harness claims you need them (you usually don't)
+3. **Environment complexity** - heterogeneous adds significant cost/burden
+4. **Vendor marketing** - Harness claims you need them (usually you don't)
 
-**For most companies (< 1000 services)**:
-✅ **GitHub-native** is optimal ($2.1M, no vendor lock-in)
+**The honest answer depends on YOUR environment**:
 
-**For enterprises (1000+ services)**:
-⚠️ **Evaluate carefully**: Is Harness convenience worth $3.4M premium?
+**Homogeneous (K8s-heavy >80%)**:
+- ✅ **GitHub-native** is optimal for ALL sizes
+- 💰 **$2.1M vs $5.5M Harness** → save $3.4M
+- 👥 1.5-2 FTE platform team
+- **Recommendation**: Use GitHub, avoid vendor lock-in
 
-**The honest answer**: GitHub with proper configuration beats Harness on cost while delivering 90% of the functionality.
+**Moderately heterogeneous (60-80% K8s)**:
+- ✅ **GitHub-native** still cheaper but harder
+- 💰 **$3.5M vs $6M Harness** → save $2.5M
+- 👥 3 FTE platform team
+- **Tradeoff**: Save money but higher operational burden
+- **Recommendation**: Evaluate your team's capacity
+
+**Truly heterogeneous (<60% K8s, multi-cloud, VMs, serverless, on-prem)**:
+- ⚠️ **Harness provides better value**
+- 💰 **$6M Harness vs $6.7M GitHub** → save $700k
+- 👥 2 FTE (Harness) vs 4.5 FTE (GitHub)
+- **Tradeoff**: Vendor lock-in vs operational complexity
+- **Recommendation**: Harness makes sense at this scale
+- **See**: [HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md)
 
 ---
 
@@ -395,30 +461,51 @@ git add . && git commit -m "test" && git push origin main
 
 **GitHub Actions is excellent for enterprise CI/CD.**
 
-**But you need to use it properly:**
-- ✅ Reusable workflows (not duplicated code)
-- ✅ OIDC (not manual secrets)
-- ✅ Infrastructure as Code (not manual UI)
-- ✅ Proper governance (CODEOWNERS + Required Workflows)
+**But the cost equation depends on your environment:**
 
-**Harness provides additional convenience (rollback, canary, ML verification).**
+**For homogeneous K8s-heavy environments (>80% K8s)**:
+- ✅ GitHub-native with proper configuration: **$2.1M**
+- ❌ Harness: **$5.5M**
+- **Savings: $3.4M with GitHub**
+- You need to use it properly:
+  - ✅ Reusable workflows (not duplicated code)
+  - ✅ OIDC (not manual secrets)
+  - ✅ Infrastructure as Code (not manual UI)
+  - ✅ Proper governance (CODEOWNERS + Required Workflows)
 
-**But it costs 2.7× more than GitHub-native ($5.5M vs $2.1M).**
+**For heterogeneous environments (<60% K8s, multi-cloud, VMs, serverless, on-prem)**:
+- ⚠️ GitHub-native: **$6.7M** (4.5 FTE, high operational burden)
+- ✅ Harness: **$6M** (2 FTE, vendor managed)
+- **Savings: $700k with Harness + reduced operational burden**
+- See [HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md) for details
 
 **The question isn't "Can GitHub do it?" (yes, it can)**
 
-**The question is: "Is Harness convenience worth $3.4M to your company?"**
+**The question is: "What's your deployment environment mix?"**
 
-For most companies, the answer is **no**.
+- **>80% K8s**: GitHub saves $3.4M
+- **60-80% K8s**: GitHub saves $2.5M (but harder)
+- **<60% K8s**: Harness saves $700k + operational burden
 
 ---
 
-## Quick Links
+## Essential Reading
 
+### Start Here
 - **[Try the Demo](docs/DEMO.md)** - 35-minute hands-on walkthrough showing what works and what breaks
 - **[Read Executive Summary](docs/EXECUTIVE_SUMMARY.md)** - 10-minute business case with cost analysis
+
+### If You Have a Heterogeneous Enterprise
+- **[Heterogeneous Reality Check](HETEROGENEOUS_REALITY.md)** ⚠️ - CRITICAL if you have:
+  - Multiple clouds (AWS, Azure, GCP)
+  - Multiple deployment targets (K8s, VMs, ECS, Lambda, on-prem)
+  - <60% Kubernetes workloads
+  - 1000+ services
+  - **Shows when Harness actually provides better TCO**
+
+### See It Live
 - **[Watch Workflows Run](https://github.com/gregkroon/githubexample/actions)** - See it live
 
 ---
 
-**Use the right tool for the job.**
+**Use the right tool for YOUR environment.**
