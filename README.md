@@ -1,8 +1,8 @@
 # Can You Build Enterprise CI/CD with GitHub?
 
-**Yes. But it costs $1.9M more than using Harness.**
+**Yes. But it costs $2.05M more over 5 years than using Harness.**
 
-This repository **proves it** with a complete working implementation.
+This repository **proves it** with a complete working implementation that runs on every push.
 
 ---
 
@@ -12,9 +12,9 @@ This repository **proves it** with a complete working implementation.
 
 | Service | Language | Pipeline |
 |---------|----------|----------|
-| user-service | Node.js | Build → Test → Scan → Sign → Deploy |
-| payment-service | Go | Build → Test → Scan → Sign → Deploy |
-| notification-service | Python | Build → Test → Scan → Sign → Deploy |
+| user-service | Node.js | Build → Test → Scan → SBOM → Sign → Attest → Dev → Prod |
+| payment-service | Go | Build → Test → Scan → SBOM → Sign → Attest → Dev → Prod |
+| notification-service | Python | Build → Test → Scan → SBOM → Sign → Attest → Dev → Prod |
 
 **Watch them run**: https://github.com/gregkroon/githubexample/actions
 
@@ -88,24 +88,34 @@ Result: Already deployed
 ```
 **No way to enforce "deploy ONLY IF security passes"**
 
-**4. Must Build 6 Custom Services**
+**4. SBOM Attestation Complexity**
+- Generate SBOM: 1 line (easy)
+- Validate SBOM: 90 lines (custom code)
+- Sign attestation: 40 lines (Cosign expertise)
+- Verify at deployment: 80 lines (2 environments)
+- **Total: 210 lines per service**
+- **× 1000 services = 210,000 lines**
+
+**5. Must Build 6 Custom Services**
 - Deployment gates (4 weeks)
 - DORA metrics (3 weeks)
 - Policy validation (3 weeks)
 - Multi-service orchestrator (6 weeks)
 - Deployment verifier (4 weeks)
 - Configuration service (3 weeks)
-- **Total: 23 weeks**
+- **Total: 23 weeks + 2 FTE ongoing**
 
-**5. Missing Capabilities**
+**6. Missing Capabilities**
 - ❌ One-click rollback
 - ❌ Deployment verification
 - ❌ Centralized configuration
 - ❌ Template locking
+- ❌ Automated SBOM policy enforcement
 
-**6. Operational Burden**
+**7. Operational Burden**
 - 2-4 platform engineers full-time
 - 16-24 hrs/week handling failures
+- SBOM policy updates across 1000 repos
 
 ---
 
@@ -113,10 +123,10 @@ Result: Already deployed
 
 | | GitHub-Native | GitHub CI + Harness CD |
 |---|---------------|------------------------|
-| **Year 1** | $1,200,000 | $892,000 |
-| **Years 2-5 (each)** | $1,100,000 | $742,000 |
-| **5-Year Total** | **$5,600,000** | **$3,710,000** |
-| **Savings** | | **$1,890,000 (34%)** |
+| **Year 1** | $1,280,000 | $892,000 |
+| **Years 2-5 (each)** | $1,120,000 | $742,000 |
+| **5-Year Total** | **$5,760,000** | **$3,710,000** |
+| **Savings** | | **$2,050,000 (36%)** |
 
 ---
 
@@ -131,10 +141,11 @@ Result: Already deployed
 - **CD**: Harness (purpose-built for scale)
 
 **Why**:
-- $1.9M less expensive
+- $2.05M less expensive
 - 75% less operational burden
 - Better governance (locked templates)
 - Sequential enforcement (security before deploy)
+- SBOM attestation built-in (vs 210k lines of code)
 
 ---
 
@@ -199,9 +210,9 @@ Architecturally impossible to deploy without security passing
 - Deployment works
 
 ❌ **But at 1000+ repos, it's more expensive**
-- Must build 6 custom services (23 weeks)
+- Must write custom enforcement (210k+ lines, 32 weeks)
 - Requires 2-4 FTE to operate
-- Costs $1.9M more over 5 years
+- Costs $2.05M more over 5 years
 - Parallel execution gap cannot be solved
 
 **The gap is operational efficiency, not functionality.**
@@ -243,11 +254,9 @@ Sometimes the hardest thing to admit is: **someone else solved this problem bett
 
 ## Quick Links
 
-- **[Try the Demo](docs/DEMO.md)** - 35-minute hands-on walkthrough
-- **[Read Executive Summary](docs/EXECUTIVE_SUMMARY.md)** - 10-minute business case
-- **[SBOM Enforcement Deep Dive](docs/SBOM_ENFORCEMENT.md)** - Why generating SBOMs is easy, using them is hard
-- **[GitHub Environment Setup](docs/GITHUB_ENVIRONMENT_SETUP.md)** - Configure approval gates and secrets
-- **[Watch Workflows Run](https://github.com/gregkroon/githubexperiment/actions)** - See it live
+- **[Try the Demo](docs/DEMO.md)** - 35-minute hands-on walkthrough showing what works and what breaks
+- **[Read Executive Summary](docs/EXECUTIVE_SUMMARY.md)** - 10-minute business case with cost analysis
+- **[Watch Workflows Run](https://github.com/gregkroon/githubexample/actions)** - See it live
 
 ---
 

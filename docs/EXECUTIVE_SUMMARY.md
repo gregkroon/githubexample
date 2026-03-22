@@ -15,16 +15,17 @@ We built a complete working implementation to find out.
 
 ## The Answer
 
-**Yes, but it costs $1.9M more over 5 years than using a purpose-built platform.**
+**Yes, but it costs $2.05M more over 5 years than using a purpose-built platform.**
 
 | Metric | GitHub-Native | GitHub CI + Harness CD |
 |--------|---------------|------------------------|
 | Tools required | 24 tools | 8 tools |
-| Custom services to build | 6 (17 weeks) | 0 |
+| Custom code required | 210k+ lines | 0 lines |
+| Custom services to build | 7 (32 weeks) | 0 |
 | Platform engineers needed | 2-4 FTE | 0.5-1 FTE |
-| 5-year cost | **$5.6M** | **$3.7M** |
+| 5-year cost | **$5.76M** | **$3.71M** |
 
-**Savings with Harness**: **$1,890,000 (34%)**
+**Savings with Harness**: **$2,050,000 (36%)**
 
 ---
 
@@ -137,12 +138,35 @@ Result: Vulnerable code ALREADY IN PRODUCTION
 
 ---
 
-### 4. Custom Engineering Required
+### 4. SBOM Attestation Complexity
+
+**The requirement**: Cryptographically verify SBOM before deployment (SLSA, SSDF compliance)
+
+**What's required per service**:
+- Generate SBOM: 1 line (easy - Syft action)
+- Validate SBOM: 90 lines (check banned packages, licenses)
+- Sign attestation: 40 lines (Cosign keyless signing)
+- Verify at deployment: 80 lines (2 environments × 40 lines each)
+- **Total: 210 lines per service**
+
+**At scale (1000 services)**:
+- Total code: 210,000 lines of SBOM enforcement
+- Update policy: Edit 1000 CI workflows + 2000 CD workflows
+- Skills required: Cosign, OIDC, Sigstore, base64, jq, regex
+- Build time: 9 weeks
+- Ongoing: 8-12 hrs/week (policy updates, Cosign upgrades, debugging)
+
+**Harness**: 10 lines of config, centralized policy, zero custom code
+
+---
+
+### 5. Custom Engineering Required
 
 **To match dedicated CD platforms, you must build**:
 
 | Service | Purpose | Build Time | Ongoing |
 |---------|---------|------------|---------|
+| SBOM Enforcement | Validation + attestation + verification | 9 weeks | 8-12 hrs/week |
 | Deployment Gate | Metrics-based verification (error rate, latency) | 4 weeks | 4-8 hrs/week |
 | DORA Metrics | Track deployment frequency, lead time, MTTR | 3 weeks | 2-4 hrs/week |
 | Policy Validation | Centralized policy enforcement | 3 weeks | 2-4 hrs/week |
@@ -150,16 +174,17 @@ Result: Vulnerable code ALREADY IN PRODUCTION
 | Deployment Verifier | Canary analysis, automatic rollback | 4 weeks | 4-8 hrs/week |
 | Configuration Service | Centralize environment configs | 3 weeks | 2-4 hrs/week |
 
-**Total**: **23 weeks initial** + **22-40 hrs/week ongoing**
+**Total**: **32 weeks initial** + **30-48 hrs/week ongoing**
 
 **Harness**: All built-in
 
 ---
 
-### 5. Missing Capabilities
+### 6. Missing Capabilities
 
 | Capability | GitHub | Must Build | Harness |
 |------------|--------|-----------|---------|
+| SBOM attestation | ⚠️ 210 lines/service | 9 weeks | ✅ Config-driven |
 | One-click rollback | ❌ | N/A | ✅ Built-in |
 | Deployment verification (ML) | ❌ | 4 weeks | ✅ Built-in |
 | Canary deployments | ❌ | 3 weeks | ✅ Built-in |
@@ -204,27 +229,28 @@ GitHub Enterprise Cloud: $400,000
   └─ 1000 users × $21/user/month × 12 months
   └─ Includes: Advanced Security, Required Workflows, Rulesets
 
-Custom Services Development: $200,000
-  └─ 23 weeks × 2 engineers × $100k salary
+Custom Services Development: $280,000
+  └─ 32 weeks × 2 engineers × $100k salary
 
 Platform Engineers (2-4 FTE): $600,000
   └─ 3 FTE average × $200k fully-loaded cost
 
 ────────────────────────────────────────
-Year 1 Total: $1,200,000
+Year 1 Total: $1,280,000
 ```
 
 **Years 2-5** (Operate + Maintain):
 ```
 GitHub Enterprise: $400,000/year
-Custom Service Maintenance: $100,000/year
+Custom Service Maintenance: $120,000/year
+  └─ SBOM policy updates, Cosign upgrades, debugging
 Platform Engineers (2-4 FTE): $600,000/year
 
 ────────────────────────────────────────
-Per Year: $1,100,000
+Per Year: $1,120,000
 ```
 
-**5-Year Total**: $1,200k + ($1,100k × 4) = **$5,600,000**
+**5-Year Total**: $1,280k + ($1,120k × 4) = **$5,760,000**
 
 ---
 
@@ -267,11 +293,11 @@ Per Year: $742,000
 
 | Item | GitHub-Native | Hybrid | Difference |
 |------|---------------|--------|------------|
-| **Year 1** | $1,200,000 | $892,000 | **-$308,000** |
-| **Year 2-5 (each)** | $1,100,000 | $742,000 | **-$358,000** |
-| **5-Year Total** | **$5,600,000** | **$3,710,000** | **-$1,890,000** |
+| **Year 1** | $1,280,000 | $892,000 | **-$388,000** |
+| **Year 2-5 (each)** | $1,120,000 | $742,000 | **-$378,000** |
+| **5-Year Total** | **$5,760,000** | **$3,710,000** | **-$2,050,000** |
 
-**ROI**: 34% savings over 5 years
+**ROI**: 36% savings over 5 years
 
 ---
 
@@ -440,8 +466,8 @@ CD: Harness
 **GitHub can do enterprise CI/CD at 1000+ repo scale.**
 
 **But**:
-- Building workarounds costs $1.9M more than a purpose-built platform
-- Custom services create critical dependencies
+- Building workarounds costs $2.05M more than a purpose-built platform
+- Custom code (210k+ lines) creates maintenance burden
 - Parallel execution gap cannot be solved
 - Operational burden requires 2-4 FTE
 

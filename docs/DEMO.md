@@ -35,28 +35,42 @@ Let's find out by actually trying it.
 ✅ Test (runs unit tests)
 ✅ Build (creates Docker image, pushes to GHCR)
 ✅ Security Scan (Trivy + Grype vulnerability scanning)
-✅ SBOM (creates software bill of materials)
+✅ SBOM (Generate + Validate + Attest)
+   ├─ Generate with Syft (1 line - EASY)
+   ├─ Validate contents (90 lines - HARD)
+   └─ Sign attestation with Cosign (40 lines - COMPLEX)
 ✅ Sign (signs image with Cosign + keyless signing)
 ✅ Policy Check (validates Dockerfile and K8s manifests)
 ```
 
-**CD Pipeline (4 min)**:
+**CD Pipeline (5 min)**:
 ```
 ✅ Deploy to Dev (automatic)
+   ├─ Verify SBOM attestation (40 lines - deployment gate)
    ├─ Creates ConfigMap (LOG_LEVEL=debug, FEATURE_FLAGS)
    ├─ Creates Secrets (DATABASE_URL, API_KEY)
    ├─ Deploys to Kubernetes (Kind cluster)
    └─ Runs smoke tests
-✅ Deploy to Production (automatic for now)
+⏸️  Wait for Approval (manual)
+✅ Deploy to Production (after approval)
+   ├─ Verify SBOM attestation (40 lines - deployment gate)
    ├─ Creates ConfigMap (LOG_LEVEL=info, FEATURE_FLAGS)
    ├─ Creates Secrets (DATABASE_URL, API_KEY)
    ├─ Deploys to Kubernetes (Kind cluster)
    └─ Runs smoke tests
 ```
 
-**Total time**: 12 minutes from push to production
+**The SBOM complexity**:
+- Generate SBOM: 1 line (automated)
+- Validate + Attest: 130 lines of custom code (CI)
+- Verify before deploy: 80 lines of custom code (CD: dev + prod)
+- **Total: 210 lines per service**
+
+**Total time**: 13 minutes from push to production
 
 **Conclusion**: ✅ **GitHub CAN do enterprise CI/CD with environments!**
+
+**But**: 210 lines × 1000 services = **210,000 lines of SBOM code to maintain**
 
 ---
 
@@ -385,6 +399,91 @@ git add . && git commit -m "break it" && git push origin main
 
 ---
 
+### Problem 7: SBOM Enforcement Complexity
+
+**The requirement**: Cryptographically verify SBOM before deployment (compliance: SLSA, SSDF, EO 14028)
+
+**Look at**:
+- `.github/workflows/ci-user-service.yml` (lines 155-250) - SBOM validation + attestation
+- `.github/workflows/cd-user-service.yml` (lines 90-165) - Attestation verification
+
+**What seems easy**:
+```yaml
+# Generate SBOM - 1 line
+- uses: anchore/sbom-action@v0
+```
+
+**What's actually required**:
+
+**In CI (130 lines)**:
+```bash
+# 1. Validate SBOM contents (90 lines)
+- Check for banned packages (log4j < 2.17.1)
+- Check license compliance (GPL/AGPL detection)
+- Parse JSON with jq, regex matching
+- Maintain banned package lists
+
+# 2. Sign and attach attestation (40 lines)
+- Get image digest (not tag - security requirement)
+- Sign SBOM with Cosign keyless signing
+- Attach as attestation using OIDC tokens
+- Verify signature works
+```
+
+**In CD - Per Environment (40 lines × 2 environments = 80 lines)**:
+```bash
+# Before EACH deployment:
+- Install jq and Cosign
+- Resolve image tag → digest
+- Verify attestation signature
+  ├─ Check certificate identity (regex patterns)
+  ├─ Validate OIDC issuer
+  ├─ Extract signed payload (base64 decode)
+  └─ Parse JSON predicate
+- Validate SBOM package count
+- Block deployment if verification fails
+```
+
+**Try it yourself**:
+```bash
+# Look at the actual code
+cat .github/workflows/ci-user-service.yml | grep -A 150 "SBOM Validation"
+
+# Count the lines
+wc -l .github/workflows/ci-user-service.yml
+# 250+ lines (half is SBOM enforcement)
+```
+
+**Reality check**:
+- **1 service**: 210 lines of SBOM code (manageable)
+- **1000 services**: 210,000 lines of SBOM code
+- **Update policy**: Edit 1000 CI workflows + 2000 CD workflows
+- **Cosign upgrade**: Update 3000 workflow files
+- **Skills required**: Cosign, OIDC, Sigstore, base64, jq, regex
+
+**Time to implement**:
+- Write validation logic: 1 week
+- Write attestation logic: 2 weeks (Cosign complexity)
+- Write verification logic: 2 weeks (deployment gates)
+- Copy to 1000 repos: 4 weeks
+- **Total: 9 weeks + 2 FTE ongoing**
+
+**Harness**:
+```yaml
+# Config-driven (0 custom code)
+sbom:
+  generate: true
+  validate:
+    bannedPackages: ["log4j:*:<2.17.1"]
+    licenses: ["GPL-3.0", "AGPL-3.0"]
+  attest: true
+  verify: true  # Checked before deployment
+```
+
+**Conclusion**: ❌ **SBOM generation is easy (1 line). Secure enforcement is complex (210 lines).**
+
+---
+
 ## Step 4: See the GitHub Enterprise "Solutions" (5 min)
 
 **GitHub Enterprise has features to help. Do they work?**
@@ -521,13 +620,14 @@ pipeline:
 
 ### What It Takes (GitHub-Native at 1000 Repos)
 
-**Custom services you must build**:
-1. Deployment gate service (metrics verification) - 4 weeks
-2. DORA metrics collector - 3 weeks
-3. Policy validation service - 3 weeks
-4. Multi-service orchestrator - 6 weeks
+**Custom code you must write**:
+1. SBOM enforcement (validation + attestation + verification) - 9 weeks
+2. Deployment gate service (metrics verification) - 4 weeks
+3. DORA metrics collector - 3 weeks
+4. Policy validation service - 3 weeks
+5. Multi-service orchestrator - 6 weeks
 
-**Total**: 17 weeks of engineering
+**Total**: 25 weeks of engineering (6 months)
 
 **Operational burden**:
 - 2-4 platform engineers full-time
@@ -584,13 +684,14 @@ Total: $3,710,000
 1. **1,000 workflow files** to maintain
 2. **3,000 environment configs** (manual UI, no centralization)
 3. **15,000 secrets** to configure individually via UI
-4. **Developers control workflows** (can bypass security)
-5. **Parallel execution** (cannot enforce "security before deploy")
-6. **No rollback button** (manual process)
-7. **No deployment verification** (must build yourself)
-8. **No secret rotation automation** (update 1000 repos manually)
-9. **No policy-based approvals** (can't block based on metrics)
-10. **Must build 6 custom services** (17 weeks)
+4. **210,000 lines of SBOM enforcement code** (210 lines × 1000 services)
+5. **Developers control workflows** (can bypass security)
+6. **Parallel execution** (cannot enforce "security before deploy")
+7. **No rollback button** (manual process)
+8. **No deployment verification** (must build yourself)
+9. **No secret rotation automation** (update 1000 repos manually)
+10. **No policy-based approvals** (can't block based on metrics)
+11. **Must write custom enforcement** (25 weeks + 2 FTE ongoing)
 
 ### 💡 The Key Insight
 
@@ -670,7 +771,9 @@ Total: $3,710,000
 
 **You can build it with GitHub.**
 
-**But you'll spend $1.9M more to make it work at scale.**
+**But you'll spend $2.05M more to make it work at scale.**
+
+**The gap: 210,000 lines of custom code (SBOM alone) + 32 weeks engineering + 2-4 FTE ongoing.**
 
 **Use the right tool for the job.**
 
