@@ -126,7 +126,6 @@ jobs:
 **3. SBOM Attestation** (✅ Simpler with reusable workflows)
 - ❌ Naive approach: 210 lines × 1000 services = 210,000 lines
 - ✅ Reusable workflow: 210 lines once, 1 line per service = 1,210 lines total
-- ✅ Or use Argo CD with policy controller (free, open source)
 - **Solution**: Reusable workflow (shown in demo)
 
 **4. Environment Configuration** (⚠️ Manual but automatable)
@@ -139,16 +138,16 @@ jobs:
 **5. Missing Features** (⚠️ Some gaps are real)
 - ❌ One-click rollback (real gap - need to redeploy previous version)
 - ❌ Advanced deployment strategies (canary/blue-green need custom code)
-- ⚠️ Deployment verification (can build or use Argo Rollouts)
+- ⚠️ Deployment verification (can build custom or use third-party tools)
 - ✅ Template locking (use Required Workflows + CODEOWNERS)
 - ✅ Centralized config (use reusable workflows)
 
 **6. What You Actually Need to Build** (Much less than claimed)
 - SBOM enforcement: ✅ Reusable workflow (2 weeks, not 9)
 - DORA metrics: ✅ Use third-party tool ($10-50k/year, not custom build)
-- Multi-service orchestration: ✅ Use Argo Workflows or Flux (free)
-- Deployment verification: ✅ Use Argo Rollouts (free) or Flagger (free)
-- **Total: 2-4 weeks + open source tools (not 32 weeks custom engineering)**
+- Multi-service orchestration: ⚠️ May need custom code for complex dependencies
+- Deployment verification: ⚠️ Custom code or third-party tools (4 weeks)
+- **Total: 4-6 weeks + third-party tools (not 32 weeks custom engineering)**
 
 ---
 

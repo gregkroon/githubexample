@@ -306,7 +306,7 @@ Year 1 Total: $480,000
 - ✅ GitHub Team (CI only)
 - ⚠️ Harness (CD) - proprietary, vendor lock-in
 - ⚠️ ML-based verification (still needs tuning)
-- ❌ 3× more expensive than Argo CD
+- ❌ 2.7× more expensive than GitHub-native (for K8s-heavy environments)
 
 **Year 1** (Implement):
 ```
@@ -459,8 +459,6 @@ Per Year: $1,070,000
 
 **Cost**: $800k-1.2M over 5 years
 **Team**: 1 FTE platform engineer
-
-**Optional**: Add Argo CD for advanced deployment strategies
 
 ---
 
