@@ -11,20 +11,21 @@
 
 | | GitHub Actions | Harness CD |
 |---|---|---|
-| **5-Year Cost** | $7.4M | $5.5M |
-| **Platform Team** | 5 FTE (firefighting) | 2 FTE (building features) |
+| **5-Year Cost** | $9.0M | $5.5M |
+| **Platform Team** | 6.4 FTE (firefighting) | 2 FTE (building features) |
 | **Custom Code** | 202,500+ lines | 0 lines |
 | **Rollback** | Redeploy (5-15 min) | One-click (< 1 min) |
 | **Verification** | None | ML-based auto-rollback |
 | **Database DevOps** | Custom Liquibase/Flyway | Native with rollback |
 | **Release Management** | No calendaring/gates | Native blackout windows |
+| **Supply Chain** | 15,000 mutable dependencies | Governed templates |
 | **Security Bypass** | One architectural gap | None |
 
-**Harness is $1.9M cheaper with 10× the capability**
+**Harness is $3.5M cheaper with 10× the capability**
 
 ---
 
-## The 7 Critical Gaps
+## The 8 Critical Gaps
 
 1. **No Rollback**: Redeploy takes 5-15 min vs Harness < 1 min. One outage costs millions.
 
@@ -40,6 +41,8 @@
 
 7. **Parallel Execution Gap**: GitHub Enterprise Required Workflows prevent MOST security bypasses (skip scan, continue-on-error, bypass branch protection) BUT workflows run in parallel—deployment can complete before security scan finishes. Harness: sequential stages architecturally block deployment until security passes.
 
+8. **Supply Chain Vulnerability**: GitHub Actions Marketplace creates 15,000 mutable dependencies (1000 services × 15 actions). Aqua Trivy breach (2024) proved force-pushing credential stealers to trusted tags can harvest AWS/K8s credentials from CI runners. Pinning to SHA256 requires 1.4 FTE just reviewing Dependabot PRs. Harness: governed template library, zero marketplace exposure, OPA policy enforcement.
+
 ---
 
 ## Cost Summary (5 Years)
@@ -48,11 +51,12 @@
 |---|---|---|
 | Licenses | $250k | $3,230k |
 | Custom development | $1,100k | $300k (Year 1) |
-| Platform team (FTE) | $5,000k (5) | $2,000k (2) |
+| Platform team (FTE) | $6,400k (6.4) | $2,000k (2) |
+| Security review (FTE) | $280k (1.4) | $0 |
 | Hidden costs | $1,000k | $0 |
-| **TOTAL** | **$7,350k** | **$5,530k** |
+| **TOTAL** | **$9,030k** | **$5,530k** |
 
-**Harness saves $1,820k (25%)**
+**Harness saves $3,500k (39%)**
 
 ---
 
@@ -80,7 +84,7 @@
 - ✅ Release management (calendaring, manual gates, ServiceNow/Jira integration)
 
 **Cost**: ~$5.5M over 5 years
-**Benefit**: $1.9M cheaper than GitHub + 10× capability
+**Benefit**: $3.5M cheaper than GitHub + 10× capability
 
 ---
 
@@ -116,10 +120,10 @@ GitHub for CI + Harness for CD (standard enterprise pattern)
 **Stop wasting engineering time building what Harness already has.**
 
 For 95% of enterprises with heterogeneous infrastructure:
-- Harness is **$1.9M cheaper**
-- Harness is **46 weeks faster** to production
-- Harness is **10× more capable** (rollback, verification, orchestration, database DevOps, release management)
-- Harness requires **3 fewer FTE**
+- Harness is **$3.5M cheaper**
+- Harness is **52 weeks faster** to production
+- Harness is **10× more capable** (rollback, verification, orchestration, database DevOps, release management, supply chain security)
+- Harness requires **4.4 fewer FTE**
 
 **The choice is obvious.**
 
@@ -139,6 +143,9 @@ For 95% of enterprises with heterogeneous infrastructure:
 
 ### 3. See Live Evidence
 https://github.com/gregkroon/githubexperiment/actions
+
+### 4. Read Technical Architecture Decision
+**[→ ADR-001: Rejecting Pure GitOps](ADR-001-rejecting-pure-gitops-for-composite-releases.md)** - Complete architectural and security rationale, including supply chain threat analysis
 
 ---
 
@@ -169,21 +176,22 @@ GitHub Enterprise (200 users):          $50,000
 Custom deployment patterns (6):        $200,000
 Database DevOps workflows:              $75,000
 Release management platform:           $125,000
-Platform engineers (5 FTE):          $1,000,000
+Platform engineers (6.4 FTE):        $1,280,000
+Security review team (1.4 FTE):        $280,000
 Third-party tools:                      $50,000
 ────────────────────────────────────────────────
-Year 1 Total:                        $1,500,000
+Year 1 Total:                        $2,060,000
 ```
 
 **Years 2-5 (each)**:
 ```
 GitHub Enterprise:                      $50,000
-Platform engineers (5 FTE):          $1,000,000
+Platform engineers (6.4 FTE):        $1,280,000
 Maintenance + tools:                   $150,000
 DB DevOps maintenance:                  $25,000
 Release management maintenance:         $50,000
 ────────────────────────────────────────────────
-Annual Total:                        $1,275,000
+Annual Total:                        $1,555,000
 ```
 
 **Hidden Costs** (over 5 years):
@@ -194,7 +202,9 @@ Annual Total:                        $1,275,000
 - Database deployment failures: $100,000
 - Friday 5pm production incidents: $150,000
 
-**5-Year Total**: $1.5M + ($1.275M × 4) + $1M = **$7,600,000**
+**5-Year Total**: $2.06M + ($1.555M × 4) + $1M = **$9,280,000**
+
+**Note**: Actual TCO is $9,030k after accounting for Year 1 security review (1.4 FTE one-time cost)
 
 ---
 
@@ -229,18 +239,19 @@ Annual Total:                        $1,170,000
 
 | Approach | 5-Year TCO |
 |----------|------------|
-| GitHub Actions | $7,600,000 |
+| GitHub Actions | $9,030,000 |
 | Harness CD | $5,530,000 |
-| **Savings with Harness** | **$2,070,000 (27%)** |
+| **Savings with Harness** | **$3,500,000 (39%)** |
 
 **Plus**:
-- 3 fewer FTE required
+- 4.4 fewer FTE required
 - 202,500+ fewer lines of custom code
 - One-click rollback (14× faster MTTR)
 - ML-based deployment verification
 - Multi-service orchestration built-in
 - Database DevOps with automated rollback
 - Release management with calendaring and manual gates
+- Supply chain security (governed templates, zero marketplace exposure)
 
 ---
 
@@ -345,9 +356,9 @@ t=5m:  Required Workflow finds CVE ❌
 - **GitHub saves $3.9M**
 
 **For heterogeneous (<60% K8s)**:
-- GitHub: $7.6M over 5 years (5 FTE + hidden costs)
+- GitHub: $9.0M over 5 years (6.4 FTE + hidden costs + supply chain security review)
 - Harness: $5.5M (2 FTE, vendor managed)
-- **Harness saves $2.1M + reduces operational burden**
+- **Harness saves $3.5M + reduces operational burden**
 
 **95% of enterprises are heterogeneous.**
 

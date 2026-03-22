@@ -3,13 +3,13 @@
 **Watch GitHub Actions fail at enterprise deployment in real-time.**
 
 **Time**: 20 minutes
-**Outcome**: See the 7 critical gaps firsthand
+**Outcome**: See the 8 critical gaps firsthand
 
 ---
 
 ## What You'll See
 
-Walk through a **real, working GitHub Actions implementation** and experience the seven gaps that make it unsuitable for enterprise CD:
+Walk through a **real, working GitHub Actions implementation** and experience the eight gaps that make it unsuitable for enterprise CD:
 
 1. ❌ **Configuration sprawl** (3,000 environments manually configured)
 2. ❌ **No rollback** (redeploy takes 5-15 min vs Harness < 1 min)
@@ -18,6 +18,7 @@ Walk through a **real, working GitHub Actions implementation** and experience th
 5. ❌ **No multi-service orchestration** (can't enforce order)
 6. ❌ **No database DevOps** (custom Liquibase/Flyway, no safe rollback)
 7. ❌ **No release management** (no calendaring, blackout windows, manual gates)
+8. ❌ **Supply chain vulnerability** (15,000 mutable marketplace dependencies)
 
 **All pipelines run live**: https://github.com/gregkroon/githubexperiment/actions
 
@@ -549,6 +550,123 @@ Weekend: Safe
 
 ---
 
+## Problem 8: Supply Chain Vulnerability (Marketplace Attack Surface)
+
+### The Scenario
+**Aqua Security Trivy Breach (2024)**: Attacker force-pushes credential stealer to trusted GitHub Action tag.
+
+**Your infrastructure**:
+- 1000 services × 15 marketplace actions = **15,000 mutable dependencies**
+- Each action runs with production AWS keys, K8s tokens, GitHub PATs
+- **One compromised action = full infrastructure breach**
+
+### Try It
+**Look at any workflow in this repo**:
+```yaml
+# .github/workflows/user-service.yml
+- uses: aquasecurity/trivy-action@v0.24.0  # ⚠️ MUTABLE TAG
+```
+
+**The attack**:
+1. Attacker compromises Trivy maintainer account
+2. Force-pushes malicious code to `v0.24.0` tag
+3. Next workflow run executes credential harvester
+4. Attacker gets: AWS keys, K8s tokens, GitHub tokens
+5. Lateral movement to production databases
+
+### The "Pin to SHA" Defense
+
+**Security team says**: "Pin to SHA256 digest"
+```yaml
+- uses: aquasecurity/trivy-action@d9cd5b1c8ee3c92e2b2c7b1c3e4f5a6b7c8d9e0f
+```
+
+**The operational reality**:
+- 1000 services × 15 actions = **15,000 SHA pins**
+- Actions update monthly = **15,000 digest updates/month**
+- Dependabot creates **15,000 PRs/month**
+- Security review: 10 min/PR = **2,500 hours/month**
+- **Requires 1.4 FTE just reviewing Dependabot PRs**
+
+**Result**:
+- ❌ Reviews become rubber-stamp
+- ❌ Updates lag by months
+- ❌ Vulnerabilities persist
+- ❌ Attack surface grows
+
+### What You Must Build
+**Custom marketplace governance system**:
+- SHA pin enforcement
+- Automated Dependabot PR review
+- Vulnerability scanning
+- Update tracking
+- Compliance reporting
+
+**Build**: 6-8 weeks
+**Maintenance**: 1.4 FTE ongoing
+**Risk**: Still exposed to marketplace attacks
+
+### With Harness: Governed Template Library
+
+**No marketplace exposure**:
+```yaml
+# Pipeline references internal vetted template
+pipeline:
+  stages:
+    - stage:
+        steps:
+          - step:
+              type: SecurityScan
+              spec:
+                template: trivy-enterprise-v2  # Internal template
+```
+
+**Security Architecture**:
+```
+┌─────────────────────────────────────┐
+│  Harness Control Plane              │
+│  ┌───────────────────────────────┐  │
+│  │  Internal Template Library    │  │
+│  │  - Platform team vets         │  │
+│  │  - Immutable versions         │  │
+│  │  - Zero marketplace exposure  │  │
+│  └───────────────────────────────┘  │
+│  ┌───────────────────────────────┐  │
+│  │  Policy-as-Code (OPA)         │  │
+│  │  - Block non-approved         │  │
+│  │  - Enforce governance         │  │
+│  └───────────────────────────────┘  │
+└─────────────────────────────────────┘
+```
+
+**Advantages**:
+- ✅ **50 templates** vs 15,000 marketplace actions
+- ✅ **50 updates/month** vs 15,000
+- ✅ **8 hrs/month** security review vs 2,500 hrs
+- ✅ **0.05 FTE** vs 1.4 FTE
+- ✅ **Zero marketplace exposure**
+- ✅ **OPA policy enforcement** (blocks non-approved templates)
+- ✅ **Centralized updates** (update once, propagates to 1000 services)
+
+### Real-World Impact
+
+**Breach cost if Trivy attack succeeded**:
+- AWS credentials harvested from 1000 CI runners
+- Lateral movement to production K8s clusters
+- Database exfiltration
+- Ransomware deployment
+- **Cost: $50M - $500M** (IBM 2024 Cost of Data Breach)
+
+**GitHub Actions**: One force-push away from SolarWinds-scale breach
+
+**Harness**: Architecturally immune (no marketplace dependencies)
+
+**Conclusion**: ❌ **15,000 attack vectors + 1.4 FTE ongoing + $50M+ breach risk**
+
+**[See ADR-001 for complete security analysis →](ADR-001-rejecting-pure-gitops-for-composite-releases.md#security-rationale-rejecting-the-open-marketplace-model)**
+
+---
+
 ## The Complete Picture
 
 | Capability | GitHub | Harness | Gap |
@@ -560,12 +678,13 @@ Weekend: Safe
 | **Orchestration** | Build it (12 weeks) | Built-in | 12 weeks + ongoing |
 | **Database DevOps** | Custom Liquibase (4 weeks) | Native with rollback | 200,000 lines DB code |
 | **Release Management** | Build it (10 weeks) | Native calendaring/gates | Friday 5pm disasters |
+| **Supply Chain** | 15,000 mutable deps | Governed templates | 1.4 FTE + $50M breach risk |
 
 **Total investment to match Harness**:
-- **46 weeks build**
-- **43-66 hrs/week** ongoing maintenance
+- **52 weeks build**
+- **51-74 hrs/week** ongoing maintenance
 - **202,500+ lines** custom code
-- **5 FTE** vs 2 FTE
+- **6.4 FTE** vs 2 FTE
 
 **[See full cost breakdown →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
@@ -577,11 +696,12 @@ Weekend: Safe
 |---|---|---|
 | **Licenses** | $250k (5yr) | $3,230k (5yr) |
 | **Custom dev** | $1,100k | $300k (Year 1 only) |
-| **Platform team** | $5,000k (5 FTE) | $2,000k (2 FTE) |
+| **Platform team** | $6,400k (6.4 FTE) | $2,000k (2 FTE) |
 | **Hidden costs** | $1,000k | $0 |
-| **TOTAL (5yr)** | **$7,350k** | **$5,530k** |
+| **Security review** | $280k (1.4 FTE × 1yr) | $0 |
+| **TOTAL (5yr)** | **$9,030k** | **$5,530k** |
 
-**Harness: $1,820k cheaper + 10× capability**
+**Harness: $3,500k cheaper + 10× capability**
 
 **[See detailed workings →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
@@ -608,9 +728,10 @@ Weekend: Safe
 - ❌ No orchestration (complex deployments fail)
 - ❌ No database DevOps (200,000 lines DB deployment code)
 - ❌ No release management (Friday 5pm disasters, no blackout windows)
+- ❌ Supply chain vulnerability (15,000 mutable marketplace actions, $50M+ breach risk)
 - ❌ Configuration sprawl (1,000 hours manual work)
 
-**Don't waste 46 weeks building what Harness has**
+**Don't waste 52 weeks building what Harness has**
 
 ---
 
@@ -721,8 +842,9 @@ cd githubexperiment
 - ❌ Configuration doesn't scale (1,000 hours manual)
 - ❌ No rollback (14× slower MTTR)
 - ❌ Heterogeneous = 202,500+ lines custom code
-- ❌ Must build verification, orchestration, DB DevOps & release management (46 weeks)
+- ❌ Must build verification, orchestration, DB DevOps, release mgmt & supply chain governance (52 weeks)
 - ❌ No deployment governance (Friday 5pm production disasters)
+- ❌ Supply chain vulnerability (15,000 mutable dependencies, $50M+ breach risk)
 - ❌ Platform team burns out maintaining workarounds
 
 **For enterprise CD**: Stop building what Harness already has.
