@@ -54,6 +54,9 @@ jobs:
         run: |
           kubectl create namespace user-service-dev || true
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
 
@@ -67,10 +70,18 @@ jobs:
       - name: Get image digest
         id: get-digest
         run: |
-          # Pull image manifest to get digest (not the image itself)
+          # Get image digest using docker buildx imagetools
           IMAGE_TAG="ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}"
-          DIGEST=$(docker manifest inspect $IMAGE_TAG | jq -r '.config.digest' || \
-                   docker buildx imagetools inspect $IMAGE_TAG --format '{{.Manifest.Digest}}')
+
+          echo "Resolving digest for: $IMAGE_TAG"
+
+          DIGEST=$(docker buildx imagetools inspect $IMAGE_TAG --format '{{.Manifest.Digest}}')
+
+          if [ -z "$DIGEST" ] || [ "$DIGEST" = "null" ]; then
+            echo "ERROR: Failed to get image digest"
+            echo "IMAGE_TAG: $IMAGE_TAG"
+            exit 1
+          fi
 
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
           echo "Image digest: $DIGEST"
@@ -297,6 +308,9 @@ jobs:
         run: |
           kubectl create namespace user-service-prod || true
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
 
@@ -312,7 +326,16 @@ jobs:
         run: |
           # Get image digest (required for secure attestation verification)
           IMAGE_TAG="ghcr.io/${{ github.repository }}/user-service:${{ github.sha }}"
+
+          echo "Resolving digest for production: $IMAGE_TAG"
+
           DIGEST=$(docker buildx imagetools inspect $IMAGE_TAG --format '{{.Manifest.Digest}}')
+
+          if [ -z "$DIGEST" ] || [ "$DIGEST" = "null" ]; then
+            echo "ERROR: Failed to get image digest for production"
+            echo "IMAGE_TAG: $IMAGE_TAG"
+            exit 1
+          fi
 
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
           echo "Production image digest: $DIGEST"
