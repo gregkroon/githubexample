@@ -9,8 +9,10 @@
 - ✅ What GitHub does excellently (CI/CD, SBOM, signing, environments)
 - ⚠️ What's genuinely hard (one-click rollback, canary deployments)
 - 💡 How to use GitHub properly (reusable workflows, IaC, OIDC)
-- 💰 What it really costs (GitHub $2.1M vs Harness $5.5M over 5 years)
-- 🆚 Honest comparison (GitHub-native vs Harness)
+- 💰 What it really costs (depends on your deployment environment)
+  - **Homogeneous (>80% K8s)**: GitHub $2.1M vs Harness $5.5M → **GitHub saves $3.4M**
+  - **Heterogeneous (<60% K8s)**: GitHub $6.7M vs Harness $6M → **Harness saves $700k**
+- 🆚 Honest comparison (GitHub-native vs Harness for BOTH environment types)
 
 ---
 
@@ -860,32 +862,37 @@ pipeline:
     service: user-service
 ```
 
-**Honest Comparison**:
+**Honest Comparison** (Homogeneous K8s-Heavy Environments >80%):
 
-| Problem | GitHub (Naive) | GitHub (Proper) | Argo CD | Harness |
-|---------|----------------|-----------------|---------|---------|
-| Workflow files | 1000 files | **1 reusable** | 0 (GitOps) | 0 |
-| Developers bypass | ⚠️ Yes (if no CODEOWNERS) | **✅ No** (Required Workflows) | ✅ No | ✅ No |
-| Sequential enforcement | ⚠️ Complex | **✅ Yes** (workflow_run) | ✅ Yes | ✅ Yes |
-| Scans Docker images | ✅ Yes (Trivy) | ✅ Yes | ✅ Yes (policy controller) | ✅ Yes |
-| Deployment verification | ❌ Must build | ⚠️ Must build | **✅ Built-in** (Argo Rollouts) | ✅ Built-in |
-| Rollback | ⚠️ Redeploy | ⚠️ Redeploy | **✅ Instant** (Git revert) | ✅ One-click |
-| Environment configs | ❌ 3,000 manual | **✅ Terraform** (IaC) | ✅ GitOps | ✅ Centralized |
-| Secrets | ❌ 15,000 manual | **✅ OIDC + Vault** | ✅ Vault | ✅ Centralized |
-| Approval gates | ✅ Manual | ✅ Manual | ✅ Manual | ✅ Manual + policy |
-| Secret rotation | ❌ Manual | **✅ OIDC** (no secrets) | ✅ Vault sync | ✅ Automated |
-| **Cost (5 years, 1000 services)** | $5.7M | **$2.1M** | **$1.8M** | $5.5M |
-| Vendor lock-in | ✅ None | ✅ None | ✅ None | ❌ Proprietary |
+| Problem | GitHub (Naive) | GitHub (Proper) | Harness |
+|---------|----------------|-----------------|---------|
+| Workflow files | 1000 files | **1 reusable** | 0 |
+| Developers bypass | ⚠️ Yes (if no CODEOWNERS) | **✅ No** (Required Workflows) | ✅ No |
+| Sequential enforcement | ⚠️ Complex | **✅ Yes** (workflow_run) | ✅ Yes |
+| Scans Docker images | ✅ Yes (Trivy) | ✅ Yes | ✅ Yes |
+| Deployment verification | ❌ Must build | ⚠️ Must build | ✅ Built-in |
+| Rollback | ⚠️ Redeploy | ⚠️ Redeploy | ✅ One-click |
+| Environment configs | ❌ 3,000 manual | **✅ Terraform** (IaC) | ✅ Centralized |
+| Secrets | ❌ 15,000 manual | **✅ OIDC + Vault** | ✅ Centralized |
+| Approval gates | ✅ Manual | ✅ Manual | ✅ Manual + policy |
+| Secret rotation | ❌ Manual | **✅ OIDC** (no secrets) | ✅ Automated |
+| **Cost (5 years, K8s-heavy)** | $5.7M | **$2.1M** | $5.5M |
+| Vendor lock-in | ✅ None | ✅ None | ❌ Proprietary |
 
-**Conclusion**:
+**Conclusion for Homogeneous (>80% K8s)**:
 - ❌ **GitHub (naive)**: Expensive, error-prone
-- ✅ **GitHub (proper)**: Cost-effective, standard practice
-- ✅ **Argo CD**: Best value ($1.8M, free, proven)
-- ⚠️ **Harness**: Most expensive ($5.5M), vendor lock-in
+- ✅ **GitHub (proper)**: Cost-effective, standard practice ($2.1M)
+- ❌ **Harness**: Most expensive ($5.5M), vendor lock-in
+
+**BUT for Heterogeneous (<60% K8s)**: See [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md) - the equation reverses (Harness $6M vs GitHub $6.7M)
 
 ---
 
 ## Step 6: The Honest Cost Reality Check (10 min)
+
+⚠️ **CRITICAL**: These costs assume **homogeneous Kubernetes-heavy environment (>80% K8s)**. For heterogeneous environments (multi-cloud, VMs, serverless, on-prem), see [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md) where **the equation reverses**.
+
+---
 
 ### Scenario A: GitHub-Native (Naive - What This Demo Shows)
 
@@ -908,7 +915,7 @@ Total: $5,880,000 ❌ (naive approach)
 
 ### Scenario B: GitHub-Native (Proper - Reusable Workflows)
 
-**What you actually do** (using GitHub correctly):
+**What you actually do** (using GitHub correctly for K8s-heavy workloads):
 - ✅ Reusable workflows (write once, not 1000 times)
 - ✅ Terraform for environments (automated)
 - ✅ OIDC for AWS/Azure/GCP (no secrets)
@@ -923,7 +930,7 @@ Terraform automation: $40k (one-time, 2 weeks)
 Third-party tools (DORA): $50k/year × 5 = $250k
 Platform engineers (1.5 FTE): $300k/year × 5 = $1,500k
 ────────────────────────────────────────────────────
-Total: $2,080,000 ✅ (proper configuration)
+Total: $2,080,000 ✅ (proper configuration, K8s-heavy)
 ```
 
 **Savings vs naive**: $3,800,000 (65% less)
@@ -939,7 +946,7 @@ Total: $2,080,000 ✅ (proper configuration)
 - ✅ Canary deployments built-in
 - ✅ ML-based verification
 - ❌ Vendor lock-in
-- ❌ 2.7× more expensive than GitHub-native
+- ❌ 2.7× more expensive than GitHub-native (for K8s-heavy)
 
 **5-Year Cost** (realistic enterprise pricing):
 ```
@@ -953,28 +960,45 @@ Platform engineers (1.5 FTE): $300k/year × 5 = $1,500k
 Total: $5,650,000 ❌ (vendor platform)
 ```
 
-**Cost vs Argo**: $3,840,000 MORE (3× expensive)
+**Cost vs GitHub-Proper**: $3,570,000 MORE (2.7× expensive)
 
 ---
 
-### Honest Comparison Table
+### Honest Comparison Table (Homogeneous K8s-Heavy >80%)
 
-| Approach | 5-Year Cost | Vendor Lock-in | vs Best Value |
-|----------|-------------|----------------|---------------|
-| **GitHub + Argo CD** | **$1,810,000** | None ✅ | Baseline |
-| GitHub (proper config) | $2,080,000 | None ✅ | +$270k |
-| **GitHub (naive)** | $5,880,000 | None | +$4,070k ❌ |
-| **Harness** | $5,650,000 | Yes ❌ | +$3,840k ❌ |
+| Approach | 5-Year Cost | Vendor Lock-in | vs GitHub-Proper |
+|----------|-------------|----------------|------------------|
+| **GitHub (naive)** | $5,880,000 | None ✅ | +$3,800k ❌ |
+| **GitHub (proper)** | **$2,080,000** | None ✅ | **Baseline** ✅ |
+| **Harness** | $5,650,000 | Yes ❌ | +$3,570k ❌ |
 
-**The Truth**:
-- ✅ **Argo CD is the best value** ($1.8M, proven, free, no lock-in)
-- ✅ **GitHub proper is good** ($2.1M, familiar, standard practice)
-- ❌ **Harness is 3× more expensive** ($5.7M vs $1.8M)
+**The Truth for K8s-Heavy Environments**:
+- ✅ **GitHub-proper is optimal** ($2.1M, no lock-in, standard practice)
+- ❌ **Harness is 2.7× more expensive** ($5.7M vs $2.1M)
 - ❌ **Naive GitHub is as bad as Harness** ($5.9M, poor config)
 
 **The gap is NOT GitHub vs Harness.**
 
 **The gap is proper configuration vs naive implementation.**
+
+---
+
+### But What About Heterogeneous Environments?
+
+**If your enterprise has**:
+- Multiple clouds (AWS, Azure, GCP)
+- Multiple deployment targets (K8s, VMs, ECS, Lambda, on-prem)
+- <60% Kubernetes workloads
+- 1000+ services
+
+**Then the cost equation REVERSES**: See [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md)
+
+**Summary of heterogeneous costs** (1000 services, <60% K8s):
+- GitHub-native: **$6.7M** (4.5 FTE, 2,500 lines custom deployment code)
+- Harness: **$6.0M** (2 FTE, vendor managed)
+- **Harness saves $700k + reduces operational burden**
+
+**Key takeaway**: Your deployment environment mix determines the optimal choice, not company size alone.
 
 ---
 
@@ -1006,29 +1030,60 @@ Total: $5,650,000 ❌ (vendor platform)
 
 **GitHub CAN do enterprise CI/CD.**
 
-**But at 1000+ repos:**
-- Building workarounds costs MORE than using a purpose-built platform
-- Operational burden requires 2-4 FTE vs 0.5-1 FTE
-- $1.9M more expensive over 5 years
+**But the economics depend on your deployment environment:**
 
-**The gap is operational efficiency, not functionality.**
+**For homogeneous K8s-heavy (>80% K8s)**:
+- ✅ GitHub-proper is optimal: **$2.1M vs $5.7M Harness**
+- ✅ Use reusable workflows, OIDC, Terraform
+- ✅ Save $3.6M, avoid vendor lock-in
+- 👥 1.5-2 FTE platform team
+
+**For heterogeneous (<60% K8s, multi-cloud, VMs, serverless, on-prem)**:
+- ⚠️ GitHub becomes expensive: **$6.7M** (4.5 FTE, 2,500 lines custom code)
+- ✅ Harness provides better value: **$6M** (2 FTE, vendor managed)
+- ✅ Save $700k + reduce operational burden
+- See: [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md)
+
+**The gap is NOT just operational efficiency.**
+
+**The gap is environment complexity and deployment target heterogeneity.**
 
 ---
 
 ## Recommendations
 
-### For < 50 Repos
-✅ **GitHub-native works** - Operational burden is manageable
+### For < 50 Services
+✅ **GitHub-native works** - Operational burden is manageable regardless of environment
 
-### For 50-500 Repos
-⚠️ **Depends on your resources** - Can you afford 2-4 FTE?
+### For 50-200 Services
+✅ **GitHub-native** - Use reusable workflows, OIDC, Terraform
+- Works for both homogeneous and moderately heterogeneous
+- Cost: $800k-1.2M over 5 years
 
-### For 1000+ Repos
-✅ **Hybrid recommended**:
-- **CI**: GitHub Actions (keep it)
-- **CD**: Harness (purpose-built for scale)
+### For 200-500 Services
+✅ **GitHub-native** (most environments)
+- Cost: $1.5-2M over 5 years
+- Use all best practices (reusable workflows, IaC)
 
-**Why**: Lower cost, less toil, better governance
+### For 1000+ Services - Depends on Environment
+
+**If K8s-heavy (>80% Kubernetes)**:
+- ✅ **GitHub-native recommended**
+- Cost: $2.1M vs $5.7M Harness
+- **Save $3.6M, avoid vendor lock-in**
+
+**If moderately heterogeneous (60-80% K8s)**:
+- ⚠️ **Evaluate carefully**
+- GitHub: $3.5M (3 FTE, harder)
+- Harness: $6M
+- **GitHub saves $2.5M but higher operational burden**
+
+**If truly heterogeneous (<60% K8s)**:
+- ✅ **Harness recommended**
+- GitHub: $6.7M (4.5 FTE, 6 deployment patterns)
+- Harness: $6M (2 FTE, vendor managed)
+- **Harness saves $700k + reduces burden**
+- See: [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md)
 
 ---
 
@@ -1078,14 +1133,30 @@ Total: $5,650,000 ❌ (vendor platform)
 
 ## The Bottom Line
 
-**You can build it with GitHub.**
+**You can build enterprise CI/CD with GitHub.**
 
-**But you'll spend $2.05M more to make it work at scale.**
+**But whether it's cheaper than Harness depends on YOUR deployment environment.**
 
-**The gap: 210,000 lines of custom code (SBOM alone) + 32 weeks engineering + 2-4 FTE ongoing.**
+### For Homogeneous K8s-Heavy (>80% K8s)
+- ✅ **GitHub-proper: $2.1M** (with reusable workflows, OIDC, Terraform)
+- ❌ **Harness: $5.7M**
+- **Savings: $3.6M with GitHub**
+- **Recommendation: Use GitHub, avoid vendor lock-in**
 
-**Use the right tool for the job.**
+### For Heterogeneous (<60% K8s, multi-cloud, VMs, serverless, on-prem)
+- ⚠️ **GitHub-native: $6.7M** (4.5 FTE, 2,500 lines custom code)
+- ✅ **Harness: $6M** (2 FTE, vendor managed)
+- **Savings: $700k with Harness + reduced operational burden**
+- **Recommendation: Harness provides better TCO**
+- **See**: [HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md)
+
+**The gap is:**
+1. **Environment complexity** (K8s-only vs multi-platform)
+2. **Configuration expertise** (reusable workflows vs duplication)
+3. **Deployment target heterogeneity** (1 pattern vs 6 patterns)
+
+**Use the right tool for YOUR environment.**
 
 ---
 
-**[← Back to README](../README.md)** | **[Read Executive Summary](EXECUTIVE_SUMMARY.md)**
+**[← Back to README](../README.md)** | **[Read Executive Summary](EXECUTIVE_SUMMARY.md)** | **[Heterogeneous Reality](../HETEROGENEOUS_REALITY.md)**
