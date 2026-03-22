@@ -1,7 +1,7 @@
 # Executive Summary: GitHub Actions vs Harness CD
 
 **For**: Engineering leadership, CFOs, decision-makers
-**Read Time**: 3 minutes
+**Read Time**: 5 minutes
 
 ---
 
@@ -20,8 +20,6 @@
 
 **Harness is $420k cheaper with 10× the capability**
 
-**[See detailed cost workings →](COST_ANALYSIS.md)**
-
 ---
 
 ## The 5 Critical Gaps
@@ -36,8 +34,6 @@
 
 5. **Parallel Execution Gap**: GitHub Enterprise Required Workflows prevent MOST security bypasses (skip scan, continue-on-error, bypass branch protection) BUT workflows run in parallel—deployment can complete before security scan finishes. Harness: sequential stages architecturally block deployment until security passes.
 
-**[See security analysis →](SECURITY_ENFORCEMENT.md)**
-
 ---
 
 ## Cost Summary (5 Years)
@@ -51,8 +47,6 @@
 | **TOTAL** | **$5,950k** | **$5,530k** |
 
 **Harness saves $420k (7%)**
-
-**[See detailed breakdown with 16 cited sources →](COST_ANALYSIS.md)**
 
 ---
 
@@ -93,8 +87,6 @@ Harness—GitHub pain growing exponentially
 
 **200+ Services, Multi-Platform**:
 Harness only—GitHub unmanageable
-
-**[See multi-platform analysis →](../HETEROGENEOUS_REALITY.md)**
 
 ---
 
@@ -137,15 +129,210 @@ For 95% of enterprises with heterogeneous infrastructure:
 - See one-click rollback
 - Watch ML verification prevent bad deploys
 
-### 3. Read Supporting Docs
-- **[COST_ANALYSIS.md](COST_ANALYSIS.md)** - Full cost breakdown, 16 sources
-- **[DEMO.md](DEMO.md)** - Hands-on walkthrough of 5 gaps
-- **[SECURITY_ENFORCEMENT.md](SECURITY_ENFORCEMENT.md)** - What GitHub Enterprise can/cannot prevent
-- **[HETEROGENEOUS_REALITY.md](../HETEROGENEOUS_REALITY.md)** - Why heterogeneity changes everything
-
-### 4. See Live Evidence
+### 3. See Live Evidence
 https://github.com/gregkroon/githubexperiment/actions
 
 ---
 
-**[← Back to README](../README.md)** | **[See the proof →](DEMO.md)** | **[Audit the math →](COST_ANALYSIS.md)**
+## Appendix: Cost Calculations
+
+### FTE Fully-Loaded Cost
+
+**Assumption**: Senior Platform Engineer in US tech hub
+
+| Component | Annual Cost |
+|-----------|-------------|
+| Base Salary | $150,000 |
+| Benefits (30%) | $45,000 |
+| Payroll Taxes (7.65%) | $11,475 |
+| Overhead (15%) | $22,500 |
+| Recruiting/Training | $15,000 |
+| **TOTAL** | **$243,975** |
+
+**Rounded to $200k** (conservative estimate)
+
+---
+
+### GitHub Actions 5-Year TCO
+
+**Year 1**:
+```
+GitHub Enterprise (200 users):          $50,000
+Custom deployment patterns (6):        $200,000
+Platform engineers (4.5 FTE):          $900,000
+Third-party tools:                      $50,000
+────────────────────────────────────────────────
+Year 1 Total:                        $1,200,000
+```
+
+**Years 2-5 (each)**:
+```
+GitHub Enterprise:                      $50,000
+Platform engineers (4.5 FTE):          $900,000
+Maintenance + tools:                   $150,000
+────────────────────────────────────────────────
+Annual Total:                        $1,100,000
+```
+
+**Hidden Costs** (over 5 years):
+- Incident response complexity: $100,000
+- Knowledge silos: $250,000
+- Compliance overhead: $100,000
+- Cross-platform orchestration: $300,000
+
+**5-Year Total**: $1.2M + ($1.1M × 4) + $750k = **$5,950,000**
+
+---
+
+### Harness CD 5-Year TCO
+
+**Year 1**:
+```
+GitHub Team (CI only, 200 users):       $50,000
+Harness Enterprise (1000 services):    $600,000
+Professional services:                 $200,000
+Training:                              $100,000
+Platform engineers (2 FTE):            $400,000
+────────────────────────────────────────────────
+Year 1 Total:                        $1,350,000
+```
+
+**Years 2-5 (each)**:
+```
+GitHub Team:                            $50,000
+Harness licenses:                      $600,000
+Support (20%):                         $120,000
+Platform engineers (2 FTE):            $400,000
+────────────────────────────────────────────────
+Annual Total:                        $1,170,000
+```
+
+**5-Year Total**: $1.35M + ($1.17M × 4) = **$5,530,000**
+
+---
+
+### Cost Difference
+
+| Approach | 5-Year TCO |
+|----------|------------|
+| GitHub Actions | $5,950,000 |
+| Harness CD | $5,530,000 |
+| **Savings with Harness** | **$420,000 (7%)** |
+
+**Plus**:
+- 2.5 fewer FTE required
+- 2,500+ fewer lines of custom code
+- One-click rollback (14× faster MTTR)
+- ML-based deployment verification
+- Multi-service orchestration built-in
+
+---
+
+## Appendix: Security Bypass Analysis
+
+### What GitHub Enterprise CAN Prevent ✅
+
+**Required Workflows + Organization Rulesets** are effective:
+- ✅ Developers CANNOT skip security scans (Required Workflows run automatically)
+- ✅ Developers CANNOT use `continue-on-error` (Required Workflow enforces failure)
+- ✅ Developers CANNOT bypass branch protection (Org Rulesets override repo settings)
+- ✅ Workflow changes require platform team approval (CODEOWNERS)
+
+**Tested 4 bypass scenarios - ALL PREVENTED**
+
+---
+
+### What GitHub Enterprise CANNOT Prevent ❌
+
+**ONE architectural limitation**:
+
+**Parallel execution gap**:
+```
+t=0:   Push code
+t=0:   Developer workflow starts → deploys
+t=0:   Required Workflow starts → security scan
+t=3m:  Developer workflow DEPLOYS ✅
+t=5m:  Required Workflow finds CVE ❌
+       ^-- Too late, code in production
+```
+
+**Why**: Both workflows triggered by same event, run simultaneously
+
+**Workaround exists** (`workflow_run` trigger) but:
+- ❌ Requires per-repo configuration (doesn't scale to 1000 repos)
+- ❌ Developers can remove trigger (needs CODEOWNERS review)
+- ❌ Configuration drift inevitable
+
+---
+
+### Harness Approach ✅
+
+**Sequential pipeline stages** (architectural solution):
+- ✅ Pipelines stored OUTSIDE repos (developers cannot modify)
+- ✅ Stages run sequentially by default
+- ✅ Stage 2 ONLY runs if Stage 1 passes
+- ✅ Architecturally impossible to deploy before security completes
+- ✅ Centralized templates (zero configuration drift)
+
+---
+
+## Appendix: Heterogeneous Reality
+
+### Typical 1000-Service Enterprise
+
+- 30% Kubernetes (300 services)
+- 20% VMs (200 services)
+- 20% ECS/Fargate (200 services)
+- 15% Lambda/Functions (150 services)
+- 10% Legacy on-prem (100 services)
+- 5% Other (50 services)
+
+**Each deployment target requires custom scripts with GitHub Actions**
+
+---
+
+### Custom Code Required
+
+| Platform | GitHub Actions | Lines | Harness |
+|----------|----------------|-------|---------|
+| Kubernetes | kubectl scripts | ~150 | Native |
+| VMs | SSH/WinRM scripts | ~200 | Native |
+| ECS/Fargate | AWS CLI scripts | ~180 | Native |
+| Lambda | SAM/Serverless | ~150 | Native |
+| Azure Functions | Azure CLI | ~140 | Native |
+| On-premise | VPN + custom | ~250 | Native |
+| **TOTAL** | **Custom code** | **2,500+ lines** | **0 lines** |
+
+---
+
+### Platform Team Requirements
+
+**GitHub Actions (heterogeneous)**:
+- Need expertise in: K8s, AWS (ECS/Lambda/EC2), Azure, GCP, VMs, on-prem
+- 4.5 FTE minimum (on-call rotation, knowledge coverage)
+- Constant maintenance (platform API changes, runtime deprecations)
+
+**Harness (heterogeneous)**:
+- Vendor handles all platform complexity
+- 2 FTE (manage platform, not maintain integrations)
+- Focus on business logic
+
+---
+
+### The Cost Reversal
+
+**For homogeneous (>80% K8s)**:
+- GitHub: $2.1M over 5 years
+- Harness: $6.0M
+- **GitHub saves $3.9M**
+
+**For heterogeneous (<60% K8s)**:
+- GitHub: $6.7M over 5 years (4.5 FTE + hidden costs)
+- Harness: $6.0M (2 FTE, vendor managed)
+- **Harness saves $700k + reduces operational burden**
+
+**95% of enterprises are heterogeneous.**
+
+---
+
+**[← Back to README](../README.md)** | **[See the proof →](DEMO.md)**

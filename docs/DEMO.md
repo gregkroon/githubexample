@@ -181,7 +181,7 @@ Each deployment target requires **custom scripts**:
 
 **Conclusion**: ❌ **Maintain 2,500+ lines forever**
 
-**[See maintenance costs →](COST_ANALYSIS.md#custom-development-costs)**
+**[See cost details →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
 ---
 
@@ -206,7 +206,7 @@ Deploy causes error rates to spike from 0.1% to 5%. GitHub doesn't notice.
 **Build**: 4-6 weeks
 **Maintenance**: 6 hrs/week
 
-**[See detailed cost →](COST_ANALYSIS.md#service-2-deployment-gate-service)**
+**[See cost details →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
 ### With Harness
 - ML-based continuous verification built-in
@@ -244,7 +244,7 @@ Service dependencies:
 **Build**: 12 weeks
 **Maintenance**: 10 hrs/week
 
-**[See detailed cost →](COST_ANALYSIS.md#service-3-multi-service-orchestration)**
+**[See cost details →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
 ### With Harness
 - Built-in service dependencies
@@ -272,7 +272,7 @@ Service dependencies:
 - **2,500+ lines** custom code
 - **4.5 FTE** vs 2 FTE
 
-**[See full cost breakdown →](COST_ANALYSIS.md)**
+**[See full cost breakdown →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
 ---
 
@@ -288,7 +288,7 @@ Service dependencies:
 
 **Harness: $420k cheaper + 10× capability**
 
-**[See detailed workings →](COST_ANALYSIS.md)**
+**[See detailed workings →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
 ---
 
@@ -334,7 +334,7 @@ Service dependencies:
 
 **Harness**: Sequential pipeline stages architecturally block deployment until security passes.
 
-**[See detailed security analysis →](SECURITY_ENFORCEMENT.md)**
+**[See detailed security analysis →](EXECUTIVE_SUMMARY.md#appendix-security-bypass-analysis)**
 
 ---
 
@@ -394,25 +394,25 @@ cd githubexperiment
 ### 1. Understand the Business Case
 **[→ EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md)** - Strategic decision framework
 
-### 2. Audit the Math
-**[→ COST_ANALYSIS.md](COST_ANALYSIS.md)** - Detailed FTE calculations, 16 cited sources
+### 2. See All Details
+**[→ EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md)** - Includes appendices with:
+- Detailed cost calculations and FTE breakdowns
+- Security bypass analysis (what GitHub Enterprise can/cannot prevent)
+- Heterogeneous reality analysis
 
-### 3. See Security Analysis
-**[→ SECURITY_ENFORCEMENT.md](SECURITY_ENFORCEMENT.md)** - What GitHub Enterprise can/cannot prevent
-
-### 4. Evaluate Harness
+### 3. Evaluate Harness
 - Schedule demo for YOUR deployment targets
 - Request POC for 10-20 services
 - Measure actual rollback time
 - Calculate prevented outage costs
 
-### 5. Calculate YOUR Cost
+### 4. Calculate YOUR Cost
 - How many FTE maintain deployment scripts?
 - How many lines of custom deployment code?
 - Current incident MTTR?
 - What does 1 hour downtime cost?
 
-**[Use our cost model](COST_ANALYSIS.md) with your numbers**
+**[Use our cost model](EXECUTIVE_SUMMARY.md#appendix-cost-calculations) with your numbers**
 
 ---
 
@@ -429,4 +429,4 @@ cd githubexperiment
 
 **For enterprise CD**: Stop building what Harness already has.
 
-**[See business case →](EXECUTIVE_SUMMARY.md)** | **[See the math →](COST_ANALYSIS.md)** | **[See security analysis →](SECURITY_ENFORCEMENT.md)**
+**[See business case →](EXECUTIVE_SUMMARY.md)** | **[See detailed appendices →](EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**

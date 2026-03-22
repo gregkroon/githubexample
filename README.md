@@ -42,17 +42,8 @@ Each with: Build → Test → Scan → SBOM → Sign → Deploy
 ### 👨‍💻 Engineers: Hands-On Demo (20 min)
 **[→ DEMO.md](docs/DEMO.md)** - Walk through actual implementation, see the 5 critical gaps
 
-### 👔 Leadership: Business Case (5 min)
-**[→ EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)** - Strategic decision framework
-
-### 💰 Finance: Detailed Cost Analysis (25 min)
-**[→ COST_ANALYSIS.md](docs/COST_ANALYSIS.md)** - Line-by-line breakdown, 16 cited sources, sensitivity analysis
-
-### 🔒 Security Teams: Bypass Analysis (15 min)
-**[→ SECURITY_ENFORCEMENT.md](docs/SECURITY_ENFORCEMENT.md)** - GitHub Enterprise features tested, what works vs what doesn't
-
-### 🏢 Enterprise Architects: Multi-Platform Reality (10 min)
-**[→ HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md)** - Why heterogeneous changes the cost equation
+### 👔 Leadership & Finance: Business Case (10 min)
+**[→ EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)** - Strategic decision framework, detailed cost breakdown, security analysis (see appendices)
 
 ---
 
@@ -83,7 +74,7 @@ Each with: Build → Test → Scan → SBOM → Sign → Deploy
 
 **Harness**: Sequential pipeline stages architecturally block deployment until security passes.
 
-**[See detailed security analysis →](docs/SECURITY_ENFORCEMENT.md)**
+**[See detailed analysis in EXEC_SUMMARY appendix →](docs/EXECUTIVE_SUMMARY.md#appendix-security-bypass-analysis)**
 
 ---
 
@@ -110,7 +101,7 @@ TOTAL:           $5,530k
 
 **Harness saves $420k (7%) with 10× more capability**
 
-**[See detailed workings →](docs/COST_ANALYSIS.md)** (auditable to line-item, 16 sources)
+**[See detailed workings in EXEC_SUMMARY →](docs/EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
 ---
 
@@ -188,7 +179,7 @@ gh run watch
 No. GitHub Actions is **excellent for CI**. This shows it's not suitable for enterprise **CD** at heterogeneous scale.
 
 **Q: Can't GitHub Enterprise Required Workflows prevent security bypasses?**
-Mostly yes. GitHub Enterprise prevents 4 of 5 bypass attempts (skip scan, continue-on-error, modify workflow, bypass branch protection). But ONE architectural gap remains: parallel execution allows deployment before Required Workflow completes. **[See detailed analysis →](docs/SECURITY_ENFORCEMENT.md)**
+Mostly yes. GitHub Enterprise prevents 4 of 5 bypass attempts (skip scan, continue-on-error, modify workflow, bypass branch protection). But ONE architectural gap remains: parallel execution allows deployment before Required Workflow completes. **[See detailed analysis →](docs/EXECUTIVE_SUMMARY.md#appendix-security-bypass-analysis)**
 
 **Q: What about adding Terraform/Vault/Argo?**
 Adding tools doesn't fix fundamental gaps (no rollback, no verification, parallel execution). You're now maintaining 3+ tools instead of 1.
@@ -201,10 +192,10 @@ You're choosing between:
 Migrating FROM Harness is easier than rewriting unmaintainable custom code.
 
 **Q: Is the cost analysis realistic?**
-Conservative. Real FTE cost is $250k (we used $200k). All assumptions documented with 16 cited sources. **[Audit the math →](docs/COST_ANALYSIS.md)**
+Conservative. Real FTE cost is $250k (we used $200k). All assumptions documented in detail. **[Audit the math →](docs/EXECUTIVE_SUMMARY.md#appendix-cost-calculations)**
 
 **Q: What about K8s-only environments?**
-GitHub can work BUT you're still missing rollback and verification. And you're one platform mandate away from needing Harness anyway. **[See K8s analysis →](HETEROGENEOUS_REALITY.md)**
+GitHub can work BUT you're still missing rollback and verification. And you're one platform mandate away from needing Harness anyway. **[See heterogeneous analysis →](docs/EXECUTIVE_SUMMARY.md#appendix-heterogeneous-reality)**
 
 ---
 
@@ -226,11 +217,14 @@ GitHub costs MORE ($6.5M vs $6.0M) with LESS capability
 
 | Doc | Purpose | Time | For |
 |-----|---------|------|-----|
+| **[README.md](README.md)** | Overview & quick start | 5 min | Everyone |
 | **[DEMO.md](docs/DEMO.md)** | Hands-on walkthrough | 20 min | Engineers |
-| **[EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)** | Business case | 5 min | Leadership |
-| **[COST_ANALYSIS.md](docs/COST_ANALYSIS.md)** | Detailed costs | 25 min | Finance |
-| **[SECURITY_ENFORCEMENT.md](docs/SECURITY_ENFORCEMENT.md)** | Bypass analysis | 15 min | Security |
-| **[HETEROGENEOUS_REALITY.md](HETEROGENEOUS_REALITY.md)** | Multi-platform | 10 min | Architects |
+| **[EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)** | Business case + detailed appendices | 10 min | Leadership, Finance, Security |
+
+**EXECUTIVE_SUMMARY includes comprehensive appendices**:
+- Cost calculations with FTE breakdowns
+- Security bypass analysis (what GitHub Enterprise can/cannot prevent)
+- Heterogeneous reality (multi-platform cost analysis)
 
 ---
 
@@ -268,4 +262,4 @@ MIT - Use this however helps your organization make informed decisions
 - ✅ GitHub Actions for CI
 - ✅ Harness CD for deployments
 
-**[See the proof →](docs/DEMO.md)** | **[See the math →](docs/COST_ANALYSIS.md)** | **[See security analysis →](docs/SECURITY_ENFORCEMENT.md)**
+**[See the proof →](docs/DEMO.md)** | **[See the math →](docs/EXECUTIVE_SUMMARY.md#appendix-cost-calculations)** | **[See security analysis →](docs/EXECUTIVE_SUMMARY.md#appendix-security-bypass-analysis)**
