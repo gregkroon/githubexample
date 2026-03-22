@@ -106,12 +106,16 @@ jobs:
           # Verify the SBOM attestation signature using digest
           echo "Verifying SBOM attestation signature..."
 
+          # Install jq first (needed for parsing)
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq > /dev/null 2>&1
+
           # Timeout after 2 minutes if hanging (large SBOM output)
+          # Capture only stdout (JSON), let stderr go to console
           if timeout 120 cosign verify-attestation \
             --type spdxjson \
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            $IMAGE_DIGEST > attestation.json 2>&1; then
+            $IMAGE_DIGEST 2>/dev/null > attestation.json; then
             echo "Verification successful"
           else
             echo "❌ **DEPLOYMENT BLOCKED**: SBOM attestation verification failed" >> $GITHUB_STEP_SUMMARY
@@ -132,11 +136,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Extract and validate SBOM contents
-          sudo apt-get update -qq && sudo apt-get install -y -qq jq > /dev/null 2>&1
+          # Cosign outputs one JSON object per line, take the first one
+          cat attestation.json | head -1 | jq -r '.payload' | base64 -d | jq '.predicate' > sbom-verified.json
 
-          cat attestation.json | jq -r '.payload' | base64 -d | jq '.predicate' > sbom-verified.json
-
-          PACKAGE_COUNT=$(jq '.packages | length' sbom-verified.json)
+          PACKAGE_COUNT=$(jq '.packages | length' sbom-verified.json 2>/dev/null || echo "0")
 
           echo "**Verified SBOM contents:**" >> $GITHUB_STEP_SUMMARY
           echo "- Total packages: $PACKAGE_COUNT" >> $GITHUB_STEP_SUMMARY
@@ -360,13 +363,17 @@ jobs:
           echo "- **Security**: Must use digest (not mutable tag)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Install jq first (needed for parsing)
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq > /dev/null 2>&1
+
           # Verify SBOM attestation using digest
           # Timeout after 2 minutes (large SBOM can take time)
+          # Capture only stdout (JSON), discard stderr noise
           if timeout 120 cosign verify-attestation \
             --type spdxjson \
             --certificate-identity-regexp="https://github.com/${{ github.repository }}/.*" \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            $IMAGE_DIGEST > prod-attestation.json 2>&1; then
+            $IMAGE_DIGEST 2>/dev/null > prod-attestation.json; then
             echo "Production SBOM attestation verified"
           else
             echo "❌ **PRODUCTION DEPLOYMENT BLOCKED**" >> $GITHUB_STEP_SUMMARY
@@ -383,11 +390,10 @@ jobs:
           echo "✅ **SBOM attestation verified for production**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Extract and validate
-          sudo apt-get update -qq && sudo apt-get install -y -qq jq > /dev/null 2>&1
-          cat prod-attestation.json | jq -r '.payload' | base64 -d | jq '.predicate' > prod-sbom.json
+          # Extract and validate (take first JSON line from Cosign output)
+          cat prod-attestation.json | head -1 | jq -r '.payload' | base64 -d | jq '.predicate' > prod-sbom.json
 
-          PACKAGE_COUNT=$(jq '.packages | length' prod-sbom.json)
+          PACKAGE_COUNT=$(jq '.packages | length' prod-sbom.json 2>/dev/null || echo "0")
 
           echo "**Verified SBOM for production:**" >> $GITHUB_STEP_SUMMARY
           echo "- Packages: $PACKAGE_COUNT" >> $GITHUB_STEP_SUMMARY
