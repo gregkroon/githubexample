@@ -75,7 +75,8 @@ jobs:
 
           echo "Resolving digest for: $IMAGE_TAG"
 
-          DIGEST=$(docker buildx imagetools inspect $IMAGE_TAG --format '{{.Manifest.Digest}}')
+          # Extract digest from inspect output (format template doesn't work reliably)
+          DIGEST=$(docker buildx imagetools inspect $IMAGE_TAG | grep "^Digest:" | head -1 | awk '{print $2}')
 
           if [ -z "$DIGEST" ] || [ "$DIGEST" = "null" ]; then
             echo "ERROR: Failed to get image digest"
@@ -329,7 +330,8 @@ jobs:
 
           echo "Resolving digest for production: $IMAGE_TAG"
 
-          DIGEST=$(docker buildx imagetools inspect $IMAGE_TAG --format '{{.Manifest.Digest}}')
+          # Extract digest from inspect output (format template doesn't work reliably)
+          DIGEST=$(docker buildx imagetools inspect $IMAGE_TAG | grep "^Digest:" | head -1 | awk '{print $2}')
 
           if [ -z "$DIGEST" ] || [ "$DIGEST" = "null" ]; then
             echo "ERROR: Failed to get image digest for production"
