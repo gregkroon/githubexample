@@ -7,10 +7,10 @@
 
 **What you'll learn**:
 - ✅ What GitHub does excellently (CI/CD, SBOM, signing, environments)
-- ⚠️ What's challenging (configuration at scale)
-- 💡 How to solve it (reusable workflows, open source tools)
-- 💰 What it really costs (realistic analysis, not vendor claims)
-- 🆚 Honest comparison (GitHub vs Argo CD vs Harness)
+- ⚠️ What's genuinely hard (one-click rollback, canary deployments)
+- 💡 How to use GitHub properly (reusable workflows, IaC, OIDC)
+- 💰 What it really costs (GitHub $2.1M vs Harness $5.5M over 5 years)
+- 🆚 Honest comparison (GitHub-native vs Harness)
 
 ---
 
@@ -678,44 +678,26 @@ jobs:
 - ❌ Naive: Edit 1000 CI workflows + 2000 CD workflows
 - ✅ Reusable: Edit 1 reusable workflow, applies everywhere instantly
 
-**Alternative: Use Argo CD with Policy Controller** (free, open source)
+**Harness**:
 ```yaml
-# Argo CD ApplicationSet with OPA policy
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-spec:
-  generators:
-    - git:
-        repoURL: https://github.com/org/services
-        directories:
-          - path: services/*
-  template:
-    spec:
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-      # SBOM validation happens in OPA policy
-      # Centralized, version-controlled, applies to all services
-
----
-# OPA policy: policies/sbom-validation.rego
-package sbom
-
-deny[msg] {
-  input.packages[_].name == "log4j"
-  input.packages[_].version < "2.17.1"
-  msg = "log4j < 2.17.1 blocked (CVE-2021-44228)"
-}
+# Config-driven (0 custom code)
+sbom:
+  generate: true
+  validate:
+    bannedPackages: ["log4j:*:<2.17.1"]
+    licenses: ["GPL-3.0", "AGPL-3.0"]
+  attest: true
+  verify: true  # Checked before deployment
 ```
 
-**With Argo CD**:
-- ✅ SBOM validation in OPA (declarative policy)
-- ✅ Centralized policy updates
-- ✅ Free, open source, battle-tested
-- ✅ Used by: Adobe, Intuit, IBM, Red Hat
+**Comparison**:
+- **GitHub (naive)**: 210,000 lines across 1000 services
+- **GitHub (reusable)**: 210 lines once, 1 line per service = 1,210 lines total
+- **Harness**: Config-driven, centralized updates
+- **GitHub advantage**: Free, no vendor lock-in
+- **Harness advantage**: Simpler config (but costs $3.4M more)
 
-**Conclusion**: ✅ **SBOM enforcement is solvable with reusable workflows OR use Argo CD (free)**
+**Conclusion**: ✅ **SBOM enforcement is solvable with GitHub reusable workflows**
 
 ---
 
@@ -839,67 +821,7 @@ with:
 
 ---
 
-### Option 2: Argo CD (Open Source GitOps)
-
-```yaml
-# apps/user-service.yaml (declarative, version-controlled)
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: user-service
-spec:
-  project: production
-  source:
-    repoURL: https://github.com/org/deployments
-    path: services/user-service
-    targetRevision: HEAD
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: production
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-
----
-# Rollout strategy (progressive delivery)
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
-metadata:
-  name: user-service
-spec:
-  strategy:
-    canary:
-      steps:
-        - setWeight: 20
-        - pause: {duration: 10m}
-        - setWeight: 50
-        - pause: {duration: 10m}
-      analysis:
-        templates:
-          - templateName: error-rate
-        args:
-          - name: service-name
-            value: user-service
-```
-
-**Pros**:
-- ✅ **Free** (open source, no licensing)
-- ✅ GitOps native (declarative, auditable)
-- ✅ Instant rollback (revert Git commit)
-- ✅ Canary deployments (with Argo Rollouts)
-- ✅ Battle-tested (Netflix, Adobe, Intuit, IBM)
-- ✅ No vendor lock-in
-
-**Cons**:
-- ⚠️ Kubernetes-only (not cloud-agnostic)
-- ⚠️ Learning curve (new tool)
-
----
-
-### Option 3: Harness Template (Platform Team Controls)
+### Option 2: Harness (Enterprise CD Platform)
 
 ```yaml
 # Lives in platform repo - developers CANNOT edit
@@ -1008,36 +930,16 @@ Total: $2,080,000 ✅ (proper configuration)
 
 ---
 
-### Scenario C: GitHub + Argo CD (Best Value)
+### Scenario C: Harness (Enterprise Platform)
 
 **What you get**:
-- ✅ GitHub Actions (CI)
-- ✅ Argo CD (CD) - FREE, open source
-- ✅ Argo Rollouts - canary, automatic rollback - FREE
-- ✅ GitOps - declarative, auditable, instant rollback
-- ✅ Battle-tested: Netflix, Adobe, Intuit, IBM
-
-**5-Year Cost**:
-```
-GitHub Team (200 users, CI only): $50k/year × 5 = $250k
-Argo CD + Rollouts: $0 (open source)
-Setup/integration: $60k (one-time, 3 weeks)
-Platform engineers (1.5 FTE): $300k/year × 5 = $1,500k
-────────────────────────────────────────────────────
-Total: $1,810,000 ✅ (lowest cost, no vendor lock-in)
-```
-
-**Savings vs naive**: $4,070,000 (69% less)
-
----
-
-### Scenario D: GitHub + Harness (Most Expensive)
-
-**What you get**:
-- ✅ GitHub Team (CI)
-- ⚠️ Harness (CD) - proprietary, vendor lock-in
-- ⚠️ ML-based verification (still needs tuning)
-- ❌ 3× more expensive than Argo CD
+- ✅ GitHub Team (CI only)
+- ✅ Harness (CD) - enterprise features
+- ✅ One-click rollback
+- ✅ Canary deployments built-in
+- ✅ ML-based verification
+- ❌ Vendor lock-in
+- ❌ 2.7× more expensive than GitHub-native
 
 **5-Year Cost** (realistic enterprise pricing):
 ```
