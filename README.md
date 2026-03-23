@@ -306,6 +306,179 @@ One production outage pays for 1.5 years of Harness.
 
 ---
 
+## FAQ: The Engineer's Reality Check
+
+If you are a Platform Engineer, Architect, or DevOps lead reading this, you probably have some objections. Let's address the elephant in the room: **Can't we just engineer our way out of these limitations?**
+
+**Yes, you can. But your time is too expensive to spend on it.**
+
+### 1. "We use GitHub Reusable Workflows. We don't maintain 3,000 separate files."
+
+**The Reality**: Reusable workflows are a massive improvement for CI standardization. But for CD, they only solve the **templating problem**, not the **state problem**.
+
+Even with a beautifully abstracted `deploy.yml`, GitHub remains a **stateless job runner**. A reusable workflow cannot natively query your APM (Datadog/New Relic) to see if error rates are spiking during a canary rollout. To do that, you have to write custom API polling scripts inside your reusable workflow. You aren't eliminating custom code; you are just centralizing it.
+
+**Example**:
+```yaml
+# .github/workflows/reusable-deploy.yml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy
+        run: kubectl apply -f k8s/
+
+      - name: Verify deployment health
+        run: |
+          # ❌ Still custom code, just centralized
+          ERROR_RATE=$(curl -H "DD-API-KEY: ${{ secrets.DATADOG_KEY }}" \
+            "https://api.datadoghq.com/api/v1/query?query=...")
+          if [ "$ERROR_RATE" -gt "5" ]; then
+            echo "Deployment failed verification"
+            exit 1
+          fi
+```
+
+You're still maintaining custom verification logic. Harness has this built-in with ML-based anomaly detection.
+
+---
+
+### 2. "ArgoCD + GitHub Actions is the CNCF GitOps standard. Why buy a monolith?"
+
+**The Reality**: GitOps is incredible—if your entire enterprise is **100% modern Kubernetes**.
+
+The moment you need to:
+- Deploy to an EC2 instance
+- Update a legacy Oracle database
+- Orchestrate a multi-region AWS Lambda rollout
+- Coordinate a VM + database + Kubernetes release
+
+**ArgoCD cannot help you.** You end up with:
+- ✅ GitOps for your modern K8s apps (beautiful)
+- ❌ Fragmented mess of custom Terraform and bash scripts for everything else
+
+**Your architecture**:
+```
+┌─────────────────────────────────────────────────┐
+│  ArgoCD (Kubernetes only - 30% of services)     │
+└─────────────────────────────────────────────────┘
+              +
+┌─────────────────────────────────────────────────┐
+│  Custom Terraform (Lambda, ECS - 20%)           │
+└─────────────────────────────────────────────────┘
+              +
+┌─────────────────────────────────────────────────┐
+│  Custom Bash scripts (VMs - 15%)                │
+└─────────────────────────────────────────────────┘
+              +
+┌─────────────────────────────────────────────────┐
+│  Flyway/Liquibase (Databases - 10%)             │
+└─────────────────────────────────────────────────┘
+              +
+┌─────────────────────────────────────────────────┐
+│  Custom orchestrator (Coordinate all of above)  │
+└─────────────────────────────────────────────────┘
+```
+
+**You're back to maintaining the Frankenstein.**
+
+Harness provides a **single, unified control plane** for K8s, Serverless, VMs, and databases.
+
+---
+
+### 3. "A git revert is instant. Harness can't make Kubernetes roll back pods any faster."
+
+**The Reality**: You are absolutely right—**physics is physics**, and K8s takes time to terminate and schedule pods.
+
+The 30-minute delay in a custom CD stack isn't the **execution** of the rollback; it's the **human detection and decision time**.
+
+**The manual process**:
+```
+5:30pm: Deployment completes
+5:32pm: First error appears in logs
+5:35pm: Error rate crosses threshold
+5:37pm: PagerDuty alert fires
+5:40pm: Developer opens laptop
+5:45pm: Developer checks logs, correlates with deployment
+5:50pm: Developer decides to rollback
+5:51pm: Developer types `git revert HEAD && git push`
+5:53pm: CI/CD pipeline starts
+6:05pm: Rollback deployment completes
+
+TOTAL: 35 minutes
+```
+
+**Harness Continuous Verification**:
+```
+5:30pm: Deployment completes
+5:32pm: First error appears in logs
+5:33pm: Harness ML detects anomaly in error rate
+5:34pm: Harness automatically halts and rolls back
+5:36pm: Rollback deployment completes
+
+TOTAL: 6 minutes
+```
+
+**Impact**: $2.4M saved per incident (at $5M/hour revenue rate).
+
+Harness uses **Machine Learning** to analyze your metrics during the rollout. If it detects an anomaly, it halts and rolls back automatically—**often before a human is even paged**.
+
+---
+
+### 4. "Harness is a beast. Managing their Delegates inside our clusters is a nightmare."
+
+**The Reality**: Deploying Harness Delegates (the agents that execute the deployments) requires an initial architectural lift. However, deploying a Delegate is a **standardized, declarative infrastructure task** (using Helm or Terraform).
+
+**One-time setup**:
+```bash
+# Deploy Harness Delegate via Helm (15 minutes)
+helm repo add harness https://app.harness.io/storage/harness-download/harness-helm-charts/
+helm install harness-delegate harness/harness-delegate-ng \
+  --set delegateName=prod-delegate \
+  --set accountId=$HARNESS_ACCOUNT_ID
+
+# Delegate auto-upgrades from Harness SaaS
+# No ongoing maintenance required
+```
+
+**Once deployed, they auto-upgrade.**
+
+**The alternative**: Would you rather have your team:
+- **Option A**: Spend 2 weeks writing standard Terraform to deploy Delegates (one-time)
+- **Option B**: Spend the next 5 years endlessly debugging why a custom Python script failed to parse an AWS response token in a GitHub Action
+
+**Choose wisely.**
+
+---
+
+### 5. "We don't want vendor lock-in."
+
+**The Reality**: **You are already locked in.**
+
+If you have built:
+- Custom state tracking service
+- Custom rollback coordinator
+- Custom health check orchestration
+- Custom deployment policy enforcement
+- 118,000 lines of platform-specific deployment code
+
+**You are heavily locked into**:
+1. The GitHub Actions ecosystem
+2. Your own internal technical debt
+3. The institutional knowledge of the 3 engineers who built it
+
+**Migration cost**:
+- Moving off GitHub Actions CD: Rewrite custom services + retrain team + migrate 3,000 workflows
+- Moving off Harness: Update pipeline YAML to new platform (standardized format)
+
+**The question isn't "lock-in or not?"**
+
+**The question is: "Lock-in to a vendor-supported platform or lock-in to unmaintainable custom code?"**
+
+Commercial CD platforms **abstract the deployment logic** away from the CI runner, making it easier to swap out underlying infrastructure in the future.
+
+---
+
 ## Live Proof
 
 This repository demonstrates real GitHub Actions CI/CD pipelines:
