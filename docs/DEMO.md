@@ -1,7 +1,7 @@
-# Technical Proof: The Frankenstein Architecture in Action
+# Technical Proof: The 3 Critical Enterprise Gaps
 
 **Time**: 20 minutes
-**What You'll See**: Real examples showing why GitHub Actions CD creates architectural sprawl
+**What You'll See**: Hands-on demonstration of why GitHub Actions forces you to build the Frankenstein architecture
 
 ---
 
@@ -27,9 +27,9 @@ gh run watch
 
 ---
 
-## Problem 1: The Stateless Runner Problem
+## Gap 1: The State & Visibility Gap
 
-### The Architecture Reality
+### The Problem: Stateless Ephemeral Runners
 
 **What GitHub Actions Actually Does**:
 ```yaml
@@ -41,9 +41,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest  # ← Ephemeral VM (destroyed after run)
     steps:
-      - name: Build
-        run: npm run build
-
       - name: Deploy
         run: kubectl apply -f k8s/deployment.yaml
 
@@ -56,483 +53,292 @@ jobs:
 **What happens after deployment**:
 - Runner VM is **destroyed**
 - No persistent state remains
-- You must build external systems to answer:
-  - "What version is in production?"
-  - "When was it deployed?"
-  - "Who deployed it?"
-  - "What was the previous version?"
+- GitHub Actions has no idea what's actually running in production
 
-### The Frankenstein Solution
+### Try It: Answer "What's Deployed?"
 
-To get basic deployment capabilities, you must add:
+**The Question**: "What version of user-service is deployed in production right now?"
+
+**With GitHub Actions**:
+```bash
+# Option 1: Check GitHub Actions logs
+gh run list --workflow=deploy.yml --limit=1
+# ❌ Only tells you what workflow ran, not what's actually deployed
+
+# Option 2: Check the deployment target
+kubectl get deployment user-service -o yaml | grep image:
+# Output: image: user-service:abc123def
+# ❌ What commit is abc123def? When was it deployed? By whom?
+
+# Option 3: Correlate git history with workflow runs
+git log --oneline | head -20
+gh run list --limit=20
+# ❌ Manual correlation, takes 10-15 minutes
+
+# Option 4: SSH into production and inspect
+kubectl exec -it user-service-pod -- cat /app/version.txt
+# ❌ If you even have version tracking built in
+```
+
+**Time to answer**: 10-15 minutes of manual investigation
+
+### The Frankenstein Solution You Build
+
+To get basic "what's deployed where?" visibility, enterprises build:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  1. ArgoCD (for deployment history)                     │
-│     └─ Tracks current state in Kubernetes               │
-│     └─ Only works for K8s, not VMs/Lambda/databases     │
+│  1. ArgoCD (for Kubernetes state)                       │
+│     └─ Only works for K8s, not Lambda/VMs/databases    │
 └─────────────────────────────────────────────────────────┘
                           +
 ┌─────────────────────────────────────────────────────────┐
 │  2. Custom state tracker service                        │
-│     └─ Database to record: service, version, timestamp  │
-│     └─ API to query deployment history                  │
-│     └─ Maintenance: 4-6 hours/week                      │
+│     └─ Database recording: service, version, timestamp │
+│     └─ API to query deployment history                 │
+│     └─ Maintenance: 4-6 hours/week                     │
 └─────────────────────────────────────────────────────────┘
                           +
 ┌─────────────────────────────────────────────────────────┐
-│  3. Observability platform integration                  │
-│     └─ Datadog/New Relic deployment markers             │
-│     └─ Custom scripts to correlate deploys with metrics │
+│  3. Datadog/New Relic deployment markers                │
+│     └─ Custom scripts to send deployment events        │
+│     └─ Still doesn't track rollback capability         │
 └─────────────────────────────────────────────────────────┘
 ```
 
-**You're now maintaining 3 separate systems for basic "what's deployed where?" visibility.**
-
----
-
-## Problem 2: The Rollback Coordination Nightmare
-
-### The Scenario: Multi-Service Deployment Fails
-
-**Real-world composite release**:
-1. Database migration (add `user_preferences` table)
-2. Backend API (reads from `user_preferences`)
-3. Frontend (UI for user preferences)
-
-### Try It: Deploy and Break
-
-```bash
-# Simulate a coordinated deployment
-cd user-service
-echo "-- Add user_preferences table" > migrations/001_add_preferences.sql
-git add . && git commit -m "Add user preferences feature"
-git push
-
-# Watch 3 separate workflows run:
-# 1. Database migration workflow ✅
-# 2. Backend API workflow ✅
-# 3. Frontend workflow ❌ (simulated S3 failure)
-```
-
-### What Actually Happens
-
-**GitHub Actions + ArgoCD + Terraform approach**:
-
-```yaml
-# Workflow 1: database/.github/workflows/deploy.yml
-jobs:
-  migrate:
-    runs-on: ubuntu-latest
-    steps:
-      - run: flyway migrate
-      # ✅ SUCCESS: user_preferences table created
-      # ❌ No coordination with other services
-```
-
-```yaml
-# Workflow 2: backend-api/.github/workflows/deploy.yml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - run: kubectl apply -f k8s/
-      # ✅ SUCCESS: API deployed, reads from user_preferences
-      # ❌ No check if database migration succeeded
-```
-
-```yaml
-# Workflow 3: frontend/.github/workflows/deploy.yml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - run: aws s3 sync build/ s3://frontend-bucket/
-      # ❌ FAILS: S3 permissions error
-```
-
-**Current State**:
-- ✅ Database: `user_preferences` table exists
-- ✅ Backend: Deployed and working
-- ❌ Frontend: Deployment failed
-- 💥 **Production is broken** (backend expects frontend, frontend isn't there)
-
-### The Manual Rollback Process
-
-**What you must do manually**:
-
-```bash
-# 1. Notice the failure (5 min)
-# - Frontend deploy failed
-# - But database and backend succeeded
-# - System is in inconsistent state
-
-# 2. Coordinate rollback (10-15 min)
-
-# Rollback frontend (doesn't exist, nothing to do)
-# ✅ Easy
-
-# Rollback backend
-cd backend-api
-git revert HEAD
-git push
-# Wait for: build (2 min) + test (2 min) + deploy (2 min) = 6 min
-
-# Rollback database
-cd database
-# ❌ Table already has data!
-# ❌ Can't just drop table (data loss)
-# Must write custom down migration
-echo "DROP TABLE user_preferences;" > migrations/down.sql
-flyway undo
-# Hope no other service started using this table
-
-# 3. Verify system is restored (5 min)
-# - Check backend is serving old version
-# - Check database migration rolled back
-# - Check for orphaned data
-# - Check dependent services
-
-# TOTAL TIME: 20-30 minutes
-```
-
-**Impact**:
-- 30 minutes of broken production
-- Manual coordination across 3 repos
-- Risk of data loss in database rollback
-- **No automatic detection, no automatic recovery**
+**You're now maintaining 3 separate systems for basic deployment visibility.**
 
 ### The Harness Approach
 
 ```yaml
-# Single pipeline with automatic coordination
-pipeline:
-  name: User Preferences Feature
+# Harness tracks state automatically
+# No custom code required
 
-  stages:
-    - stage:
-        name: Database Migration
-        type: Database
-        spec:
-          migration: user_preferences
-        rollbackSteps:
-          - FlywayUndo
+# Query current state:
+curl https://app.harness.io/api/deployments/user-service/production
+# Returns:
+# {
+#   "service": "user-service",
+#   "environment": "production",
+#   "version": "v1.2.4",
+#   "artifact": "user-service:abc123def",
+#   "deployedAt": "2024-03-23T17:30:00Z",
+#   "deployedBy": "jane@company.com",
+#   "previousVersion": "v1.2.3",
+#   "rollbackAvailable": true
+# }
 
-    - stage:
-        name: Backend API
-        type: Deployment
-        spec:
-          service: backend-api
-          dependsOn: [Database Migration]  # Won't run if DB fails
-        rollbackSteps:
-          - K8sRollback
-
-    - stage:
-        name: Frontend
-        type: Deployment
-        spec:
-          service: frontend
-          dependsOn: [Backend API]  # Won't run if backend fails
-        rollbackSteps:
-          - S3Rollback
-        # ❌ FAILS HERE
-
-  # Automatic rollback sequence:
-  # 1. Frontend deployment fails
-  # 2. Harness automatically triggers:
-  #    - Backend K8sRollback
-  #    - Database FlywayUndo
-  # 3. System restored to consistent state
-  #
-  # TOTAL TIME: < 2 minutes
+# Time: 5 seconds
 ```
-
-**Key difference**: One pipeline coordinator vs three independent workflows.
 
 ---
 
-## Problem 3: The Governance Nightmare
+## Gap 2: The Verification Gap
 
-### The Reality: 3,000 Workflow Files
+### The Problem: "Deploy and Pray"
 
-**Your enterprise**:
-- 1,000 microservices
-- 3 environments (dev, staging, prod)
-- 3 workflow files per service
-- **= 3,000 workflow files to maintain**
+**A successful GitHub Actions deployment means**:
+- ✅ The container started
+- ❌ NOT that the application is healthy
+- ❌ NOT that error rates are normal
+- ❌ NOT that the deployment should continue
 
-### Try to Enforce a Policy
+### What Enterprises Actually Write
 
-**Requirement**: All production deployments must:
-1. Require manual approval
-2. Block during blackout windows (Fri 4pm - Mon 8am)
-3. Wait 1 hour after staging deployment
-4. Block if active P1 incidents exist
-
-### The GitHub Actions Approach
-
-**You must implement in 3,000 separate files**:
-
+**Real-world custom verification script**:
 ```yaml
-# Repo 1: user-service/.github/workflows/prod.yml
-jobs:
-  deploy:
-    environment:
-      name: production
-      # Manual approval (built-in) ✅
+# .github/workflows/deploy.yml
+- name: Deploy to production
+  run: kubectl apply -f k8s/
 
-    steps:
-      # Blackout window check (custom script)
-      - name: Check deployment window
-        run: |
-          # ❌ Custom bash logic
-          HOUR=$(date +%H)
-          DAY=$(date +%u)
-          if [ $DAY -eq 5 ] && [ $HOUR -ge 16 ]; then
-            echo "Deployment blocked: Friday after 4pm"
-            exit 1
-          fi
+- name: Wait and verify
+  run: |
+    # Wait for rollout
+    kubectl rollout status deployment/user-service
 
-      # Soak time check (custom script)
-      - name: Check staging soak time
-        run: |
-          # ❌ Query custom state tracker API
-          STAGING_TIME=$(curl https://state-tracker/api/staging-deploy-time)
-          # ❌ Calculate time difference
-          # ❌ Exit if < 1 hour
+    # Hard-coded sleep
+    sleep 300  # Wait 5 minutes for metrics
 
-      # Incident check (custom script)
-      - name: Check active incidents
-        run: |
-          # ❌ Query PagerDuty API
-          # ❌ Parse JSON response
-          # ❌ Exit if P1 incidents exist
+    # Query observability platform
+    ERROR_RATE=$(curl -s -H "DD-API-KEY: ${{ secrets.DATADOG_KEY }}" \
+      "https://api.datadoghq.com/api/v1/query?query=sum:trace.express.request.errors{service:user-service,env:production}.as_rate()" \
+      | jq '.series[0].pointlist[-1][1]')
 
-      - name: Deploy
-        run: kubectl apply -f k8s/
+    # Hard-coded threshold
+    if (( $(echo "$ERROR_RATE > 0.05" | bc -l) )); then
+      echo "ERROR: Error rate is ${ERROR_RATE}% (threshold: 5%)"
+      exit 1
+    fi
+
+    echo "Verification passed: Error rate is ${ERROR_RATE}%"
 ```
 
-**Now multiply this by 3,000 workflow files.**
+**Problems with this approach**:
 
-### What Happens Over Time
+1. **Hard-coded thresholds**: 5% might be normal for this service during peak hours
+2. **No baseline comparison**: Doesn't compare to pre-deployment error rates
+3. **False positives**: Unrelated traffic spike triggers rollback
+4. **Wastes CI minutes**: 5-minute sleep on every deployment
+5. **No automatic rollback**: Just fails the workflow, doesn't undo deployment
+6. **Maintenance burden**: Every observability platform change breaks this script
 
-**Month 1**: Team A copies the template correctly
-**Month 3**: Team B copies an old version (missing incident check)
-**Month 6**: Team C modifies blackout window logic (different time zone)
-**Month 12**: Team D removes soak time check ("we deploy faster")
+### Try It: Deploy with Broken Verification
 
-**Result**: **Configuration drift across 3,000 files**
+**Scenario**: Deploy a version that increases error rate by 3% (below threshold, but anomalous)
 
-### Compliance Audit Scenario
-
-**Auditor**: "Show me all production deployments last quarter that violated the 1-hour soak time requirement."
-
-**With GitHub Actions**:
 ```bash
-# 1. Clone 1,000 repos
-for repo in $(cat repos.txt); do
-  git clone $repo
-done
+# Deploy version with subtle performance degradation
+cd user-service
+# Simulate slow database queries
+echo "await new Promise(resolve => setTimeout(resolve, 200))" >> src/index.js
+git commit -am "Add latency (below threshold)"
+git push
 
-# 2. Parse 3,000 workflow files
-for workflow in */.github/workflows/prod.yml; do
-  # Extract soak time logic (if it exists)
-  # Hope it's implemented consistently
-done
+# Watch deployment succeed despite degradation
+gh run watch
 
-# 3. Query workflow run logs (if not deleted)
-gh api repos/{org}/{repo}/actions/runs --paginate
-
-# 4. Correlate workflow runs with deployments
-# How do you know which workflow actually deployed?
-# ArgoCD has different timestamps
-# Workflow logs might be deleted (90-day retention)
-
-# 5. Manually verify each deployment
-# Time required: 40-80 hours
+# ✅ Deployment succeeds (errors < 5%)
+# ❌ But service is degraded (3% error rate is 10x normal baseline)
+# ❌ No rollback triggered
+# ❌ Production is degraded until next deployment
 ```
 
-**With Harness**:
+### The Manual Rollback Process
+
+**When engineers notice the problem** (30-60 minutes later):
+
 ```bash
-# One API query
-curl https://app.harness.io/api/deployments \
-  -d 'environment=production' \
-  -d 'startDate=2024-01-01' \
-  -d 'endDate=2024-03-31' \
-  -d 'policyViolation=soak_time'
+# 1. Investigate (10-15 min)
+# - Check Datadog dashboards
+# - Correlate error spike with deployment time
+# - Confirm it's the latest deployment
 
-# Response: JSON array of all violations
-# Time required: 30 seconds
+# 2. Decide to rollback (5 min)
+# - Discuss with team
+# - Verify no other changes deployed
+
+# 3. Execute rollback (10-15 min)
+cd user-service
+git revert HEAD
+git push
+
+# Wait for full CI/CD:
+# - Install dependencies (2 min)
+# - Run tests (2 min)
+# - Security scan (3 min)
+# - Build image (2 min)
+# - Deploy (3 min)
+# Total: 12-15 minutes
+
+# TOTAL TIME: 30-45 minutes from detection to recovery
 ```
 
-### The Harness Approach: Centralized Policy
+**At $100k/hour downtime**: 30 minutes = **$50k incident cost**
+
+### The Harness Approach
 
 ```yaml
-# One policy file for all 1,000 services
-# File: .harness/policies/production-protection.yaml
+# Harness Continuous Verification
+stages:
+  - stage:
+      name: Deploy to Production
+      type: Deployment
+      spec:
+        service: user-service
+        environment: production
 
-apiVersion: policy.harness.io/v1
-kind: Policy
-metadata:
-  name: Production Protection
-  enforcement: HARD  # Cannot be bypassed
+        # Native canary deployment
+        strategy:
+          canary:
+            steps:
+              - step: 10%  # Deploy to 10% of pods
+              - step:
+                  type: Verify
+                  spec:
+                    type: Datadog
+                    sensitivity: Medium  # ML-based
+                    duration: 5m
+                    # ✅ Compares to baseline automatically
+                    # ✅ Uses ML to detect anomalies
+                    # ✅ No hard-coded thresholds
 
-spec:
-  rules:
-    - name: Manual Approval Required
-      type: approval
-      enforcement: required
+              - step: 50%  # If verification passes
+              - step:
+                  type: Verify
+                  spec:
+                    type: Datadog
+                    duration: 5m
 
-    - name: Blackout Windows
-      type: deployment_window
-      enforcement: required
-      config:
-        blackout:
-          - days: [Friday, Saturday, Sunday]
-            start: "16:00"
-            end: "08:00"
-            timezone: "America/New_York"
-          - dates: ["2024-12-24", "2024-12-25"]  # Holidays
+              - step: 100%  # Full rollout
 
-    - name: Staging Soak Time
-      type: soak_time
-      enforcement: required
-      config:
-        environment: staging
-        minimumDuration: 1h
-
-    - name: Incident Check
-      type: external_check
-      enforcement: required
-      integration: pagerduty
-      config:
-        blockOnSeverity: ["P1", "P2"]
-
-# Services reference this policy automatically
-pipeline:
-  environment: production  # ← Policy automatically applied
+        # Automatic rollback on failure
+        rollbackSteps:
+          - K8sRollingRollback
 ```
 
-**Result**:
-- **1 policy file** instead of 3,000 workflow files
-- Automatic enforcement (no drift)
-- Audit trail built-in
-- Changes apply to all services instantly
+**What happens with the degraded deployment**:
+
+```
+1. Canary deploys to 10% of pods (1 min)
+2. Harness ML analyzes Datadog metrics (5 min)
+3. Detects 3% error rate is anomalous vs baseline (even though < 5%)
+4. Automatically halts deployment
+5. Automatically triggers rollback
+6. Production restored
+
+TOTAL TIME: 6-8 minutes (85% faster than manual)
+```
+
+**Incident cost at $100k/hour**: 8 minutes = **$13k** (vs $50k manual)
 
 ---
 
-## Problem 4: The Platform Team Burden
+## Gap 3: The Heterogeneous Infrastructure Tax
 
-### Where Time Actually Goes
+### The Reality: You're Not 100% Kubernetes
 
-**6-person platform engineering team with GitHub Actions CD**:
-
+**Typical enterprise infrastructure breakdown**:
 ```
-Weekly Time Allocation:
-
-Monday:
-  - 4 hours: Debug ArgoCD sync failures
-  - 2 hours: Help Team X with failed deployment
-  - 2 hours: Fix Terraform state lock issue
-
-Tuesday:
-  - 3 hours: Update Flyway scripts across 50 services
-  - 2 hours: Investigate "what version is in prod?" for Team Y
-  - 3 hours: Write custom script to enforce new policy
-
-Wednesday:
-  - 4 hours: Upgrade GitHub Actions runners (security patch)
-  - 2 hours: Fix broken Lambda deployment script
-  - 2 hours: Coordinate multi-service rollback for Team Z
-
-Thursday:
-  - 3 hours: Review 47 Dependabot PRs (action version updates)
-  - 3 hours: Standardize workflow files across repos
-  - 2 hours: Debug "kubectl connection refused" in CI
-
-Friday:
-  - 3 hours: Emergency rollback (production incident)
-  - 2 hours: Post-mortem documentation
-  - 3 hours: Update deployment runbooks
-
-──────────────────────────────────────────────────────
-Total: 40 hours maintaining glue code
-       0 hours building developer productivity features
+1000 services distributed across:
+  ├─ 40% Kubernetes (400 services)
+  ├─ 30% Serverless/ECS (300 services)
+  ├─ 20% EC2/VMs (200 services)
+  └─ 10% Managed Databases (100 services)
 ```
 
-**2-person platform engineering team with Harness**:
+**ArgoCD handles 40%. What about the other 60%?**
 
-```
-Weekly Time Allocation:
+### What You Actually Build
 
-Monday:
-  - 1 hour: Review Harness dashboard for deployment trends
-  - 3 hours: Build new developer self-service portal
-  - 4 hours: Design improved CI caching strategy
+**For each platform, you maintain custom deployment scripts**:
 
-Tuesday:
-  - 1 hour: Update deployment policy (1 file change)
-  - 6 hours: Build automated environment provisioning
-
-Wednesday:
-  - 2 hours: Investigate failed deployment (Harness pinpointed root cause)
-  - 5 hours: Implement developer productivity improvements
-
-Thursday:
-  - 1 hour: Configure new service in Harness
-  - 6 hours: Build internal platform documentation
-
-Friday:
-  - 1 hour: One-click rollback (production incident)
-  - 30 min: Post-mortem (Harness provided deployment timeline)
-  - 5 hours: Strategic planning for Q2 platform improvements
-
-──────────────────────────────────────────────────────
-Total: 6 hours managing deployments
-       34 hours building developer productivity features
-```
-
-**The difference**:
-- GitHub Actions team: **100% reactive firefighting**
-- Harness team: **85% proactive feature building**
-
----
-
-## Problem 5: The Heterogeneous Infrastructure Reality
-
-### Your Actual Infrastructure
-
-```
-1000 services deployed across:
-  ├─ 300 Kubernetes pods (30%)
-  ├─ 200 AWS Lambda functions (20%)
-  ├─ 180 ECS/Fargate containers (18%)
-  ├─ 150 EC2 VMs (15%)
-  ├─ 100 RDS databases (10%)
-  ├─ 50 On-premise VMs (5%)
-  └─ 20 Azure App Services (2%)
-```
-
-### The GitHub Actions Approach
-
-**You must maintain deployment scripts for each platform**:
-
+#### Kubernetes (ArgoCD handles this ✅)
 ```yaml
-# Kubernetes deployment (~80 lines)
-- name: Deploy to K8s
+# .github/workflows/deploy-k8s.yml
+- name: Deploy to Kubernetes
   run: |
     kubectl apply -f k8s/deployment.yaml
     kubectl rollout status deployment/$SERVICE
-    kubectl rollout history deployment/$SERVICE
 
-# Rollback K8s (~20 lines)
-- name: Rollback K8s
-  if: failure()
-  run: kubectl rollout undo deployment/$SERVICE
+# Rollback:
+- run: kubectl rollout undo deployment/$SERVICE
 ```
 
+**Lines per service**: ~80
+**Services**: 400
+**Total**: 32,000 lines
+
+---
+
+#### AWS Lambda (Custom scripts ❌)
 ```yaml
-# Lambda deployment (~60 lines)
+# .github/workflows/deploy-lambda.yml
+- name: Package Lambda
+  run: |
+    pip install -r requirements.txt -t package/
+    cd package && zip -r ../function.zip .
+    cd .. && zip -g function.zip lambda_function.py
+
 - name: Deploy Lambda
   run: |
     aws lambda update-function-code \
@@ -542,182 +348,256 @@ Total: 6 hours managing deployments
     aws lambda wait function-updated \
       --function-name $FUNCTION_NAME
 
-    aws lambda publish-version \
-      --function-name $FUNCTION_NAME
+    # Publish new version
+    VERSION=$(aws lambda publish-version \
+      --function-name $FUNCTION_NAME \
+      --query 'Version' --output text)
 
-# Rollback Lambda (~40 lines)
-- name: Rollback Lambda
+    # Update alias to new version
+    aws lambda update-alias \
+      --function-name $FUNCTION_NAME \
+      --name production \
+      --function-version $VERSION
+
+- name: Rollback Lambda (if deployment fails)
   if: failure()
   run: |
     # Get previous version
-    PREV_VERSION=$(aws lambda list-versions-by-function ...)
-    # Update alias to previous version
-    aws lambda update-alias ...
+    PREV_VERSION=$(aws lambda list-versions-by-function \
+      --function-name $FUNCTION_NAME \
+      --query 'Versions[-2].Version' --output text)
+
+    # Point alias back
+    aws lambda update-alias \
+      --function-name $FUNCTION_NAME \
+      --name production \
+      --function-version $PREV_VERSION
 ```
 
+**Lines per service**: ~100
+**Services**: 200
+**Total**: 20,000 lines
+
+**Maintenance burden**:
+- AWS deprecates Python 3.8 → update 200 workflows
+- Lambda packaging changes → update 200 workflows
+- IAM policy updates → update 200 workflows
+
+---
+
+#### EC2/VMs (Custom scripts ❌)
 ```yaml
-# ECS deployment (~90 lines)
-- name: Deploy to ECS
+# .github/workflows/deploy-vm.yml
+- name: Deploy to VMs
   run: |
-    aws ecs register-task-definition \
-      --cli-input-json file://task-definition.json
+    # Stop service
+    ssh $USER@$SERVER "sudo systemctl stop $SERVICE"
 
-    aws ecs update-service \
-      --cluster $CLUSTER \
-      --service $SERVICE \
-      --task-definition $TASK_DEF
-
-    aws ecs wait services-stable \
-      --cluster $CLUSTER \
-      --services $SERVICE
-
-# Rollback ECS (~50 lines)
-- name: Rollback ECS
-  if: failure()
-  run: |
-    # Get previous task definition
-    # Update service to previous version
-```
-
-```yaml
-# VM deployment (~120 lines)
-- name: Deploy to VM
-  run: |
-    # SSH to server
-    ssh $USER@$SERVER "systemctl stop $SERVICE"
+    # Backup current version
+    ssh $USER@$SERVER "sudo cp -r /opt/$SERVICE /opt/$SERVICE.backup"
 
     # Copy new version
-    scp package.tar.gz $USER@$SERVER:/opt/$SERVICE/
+    scp -r build/* $USER@$SERVER:/tmp/$SERVICE/
+    ssh $USER@$SERVER "sudo cp -r /tmp/$SERVICE/* /opt/$SERVICE/"
 
-    # Extract and restart
-    ssh $USER@$SERVER "tar -xzf /opt/$SERVICE/package.tar.gz"
-    ssh $USER@$SERVER "systemctl start $SERVICE"
+    # Restart service
+    ssh $USER@$SERVER "sudo systemctl start $SERVICE"
 
     # Health check
-    ssh $USER@$SERVER "curl http://localhost:8080/health"
+    sleep 10
+    HEALTH=$(ssh $USER@$SERVER "curl -s http://localhost:8080/health" | jq -r '.status')
 
-# Rollback VM (~80 lines)
-- name: Rollback VM
-  if: failure()
-  run: |
-    # SSH to server
-    # Copy previous version from backup
-    # Restart service
+    if [ "$HEALTH" != "ok" ]; then
+      echo "Health check failed, rolling back"
+      ssh $USER@$SERVER "sudo systemctl stop $SERVICE"
+      ssh $USER@$SERVER "sudo rm -rf /opt/$SERVICE"
+      ssh $USER@$SERVER "sudo mv /opt/$SERVICE.backup /opt/$SERVICE"
+      ssh $USER@$SERVER "sudo systemctl start $SERVICE"
+      exit 1
+    fi
 ```
 
+**Lines per service**: ~120
+**Services**: 200
+**Total**: 24,000 lines
+
+**Maintenance burden**:
+- SSH key rotation → update 200 workflows
+- Systemd changes → update 200 workflows
+- Backup strategy changes → update 200 workflows
+
+---
+
+#### RDS Databases (Custom scripts ❌)
 ```yaml
-# RDS migration (~70 lines)
-- name: Deploy Database
+# .github/workflows/deploy-database.yml
+- name: Run database migration
   run: |
-    flyway -url=$DB_URL \
-           -user=$DB_USER \
-           -password=$DB_PASSWORD \
-           migrate
+    # Download Flyway
+    wget -qO- https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/9.0.0/flyway-commandline-9.0.0-linux-x64.tar.gz | tar xvz
 
-# Rollback RDS (~60 lines)
-- name: Rollback Database
+    # Run migration
+    ./flyway-9.0.0/flyway \
+      -url="jdbc:postgresql://${{ secrets.DB_HOST }}:5432/${{ secrets.DB_NAME }}" \
+      -user="${{ secrets.DB_USER }}" \
+      -password="${{ secrets.DB_PASSWORD }}" \
+      migrate
+
+- name: Rollback database (if migration fails)
   if: failure()
   run: |
-    flyway undo
-    # Hope your down migrations are correct
+    ./flyway-9.0.0/flyway \
+      -url="jdbc:postgresql://${{ secrets.DB_HOST }}:5432/${{ secrets.DB_NAME }}" \
+      -user="${{ secrets.DB_USER }}" \
+      -password="${{ secrets.DB_PASSWORD }}" \
+      undo
 ```
 
-**Total custom deployment code**:
-- K8s: 100 lines × 300 services = 30,000 lines
-- Lambda: 100 lines × 200 services = 20,000 lines
-- ECS: 140 lines × 180 services = 25,200 lines
-- VMs: 200 lines × 150 services = 30,000 lines
-- RDS: 130 lines × 100 services = 13,000 lines
+**Lines per service**: ~80
+**Services**: 100
+**Total**: 8,000 lines
 
-**= 118,200 lines of deployment code to maintain**
+**Maintenance burden**:
+- Flyway version updates → update 100 workflows
+- Database credential rotation → update 100 workflows
+- Migration strategy changes → update 100 workflows
 
-**And every time a platform changes**:
-- Kubernetes upgrades kubectl API → update 300 workflows
-- AWS deprecates Lambda runtime → update 200 workflows
-- Company migrates to ECS Fargate → rewrite 180 workflows
+---
+
+### Total Custom Deployment Code
+
+```
+Kubernetes:  32,000 lines (ArgoCD reduces this)
+Lambda:      20,000 lines
+VMs:         24,000 lines
+Databases:    8,000 lines
+─────────────────────────
+TOTAL:       84,000 lines of custom deployment code to maintain
+```
+
+**Every infrastructure change propagates to hundreds of workflows.**
 
 ### The Harness Approach
 
+**Same deployment logic, all platforms**:
+
 ```yaml
-# Kubernetes deployment
-- step:
-    type: K8sRollingDeploy
-    spec:
-      manifests: k8s/
-    # Built-in rollback: automatic
+# Harness pipeline handles all infrastructure types
+stages:
+  - stage:
+      name: Deploy Kubernetes
+      type: Deployment
+      spec:
+        service: user-service
+        infrastructure: kubernetes
+        strategy: Canary
+        # Native K8s support, no custom code
 
-# Lambda deployment
-- step:
-    type: AwsLambda
-    spec:
-      function: ${service.name}
-    # Built-in rollback: automatic
+  - stage:
+      name: Deploy Lambda
+      type: Deployment
+      spec:
+        service: user-service-lambda
+        infrastructure: aws-lambda
+        strategy: AllAtOnce
+        # Native Lambda support, no custom code
 
-# ECS deployment
-- step:
-    type: EcsRollingDeploy
-    spec:
-      service: ${service.name}
-    # Built-in rollback: automatic
+  - stage:
+      name: Deploy to VMs
+      type: Deployment
+      spec:
+        service: user-service-vm
+        infrastructure: ssh
+        strategy: Rolling
+        # Native SSH deployment, no custom code
 
-# VM deployment
-- step:
-    type: SshDeploy
-    spec:
-      host: ${env.vm_host}
-      package: ${artifact.path}
-    # Built-in rollback: automatic
-
-# RDS migration
-- step:
-    type: DatabaseMigration
-    spec:
-      migration: flyway
-    # Built-in rollback: automatic
+  - stage:
+      name: Database Migration
+      type: Deployment
+      spec:
+        service: user-service-db
+        infrastructure: database
+        migration: flyway
+        # Native Flyway integration, no custom code
 ```
 
-**Total custom code**: **0 lines**
+**Custom code required**: **0 lines**
 
 **Platform changes**:
-- Harness maintains integrations
-- Your workflows don't change
-- Upgrades are automatic
+- AWS deprecates runtime → Harness updates Lambda integration
+- Flyway releases new version → Harness updates database integration
+- Your workflows: **unchanged**
 
 ---
 
 ## The Bottom Line
 
-### What You're Actually Choosing Between
+### What GitHub Actions Forces You to Build
 
-**GitHub Actions CD**:
 ```
-Architecture: GHA + Terraform + ArgoCD + Bash + Glue Code
-Team: 6 engineers maintaining the Frankenstein
-Time: 80% firefighting, 20% building
-Cost: $8.9M (5 years)
-Rollback: Manual, 25-40 minutes
-Governance: 3,000 workflow files to audit
-```
+ArgoCD (for 40% of infrastructure)
+  + Custom Lambda deployer (20,000 lines)
+  + Custom VM deployer (24,000 lines)
+  + Custom database migrator (8,000 lines)
+  + Custom state tracker (for "what's deployed?")
+  + Custom verification scripts (for health checks)
+  + Custom approval system (for manual gates)
 
-**Harness CD**:
-```
-Architecture: Single control plane
-Team: 2 engineers configuring policies
-Time: 15% managing, 85% building
-Cost: $5.6M (5 years)
-Rollback: Automatic, < 2 minutes
-Governance: 1 policy file for all services
+= The Frankenstein Architecture
+= Your platform team maintaining glue code instead of building features
 ```
 
-### The Strategic Question
+### What Harness Provides
 
-**Do you want your platform team:**
-- Maintaining deployment glue code?
-- Building developer productivity features?
+```
+Single control plane
+  + Native multi-infrastructure support
+  + Built-in state tracking
+  + ML-driven verification
+  + Automatic rollback
+  + Native approval workflows
 
-**GitHub Actions is excellent for CI.** Use it for build, test, and scan.
+= Zero custom deployment code
+= Platform team builds developer portals instead
+```
 
-**For enterprise CD**, the architectural sprawl and operational burden of the Frankenstein stack costs more than a purpose-built platform.
+---
+
+## Try It Yourself
+
+### Exercise 1: State Check
+```bash
+# How long does it take to answer:
+# "What version of user-service is in production right now?"
+
+time (gh run list && kubectl get deployment user-service -o yaml | grep image)
+
+# GitHub Actions: 10-15 minutes (manual correlation)
+# Harness: 5 seconds (API query)
+```
+
+### Exercise 2: Verification Test
+```bash
+# Deploy code with subtle performance degradation
+echo "await new Promise(r => setTimeout(r, 200))" >> user-service/src/index.js
+git commit -am "Add latency" && git push
+
+# Does your pipeline catch this?
+# GitHub Actions: No (unless you wrote custom verification)
+# Harness: Yes (ML detects baseline deviation)
+```
+
+### Exercise 3: Multi-Platform Deployment
+```bash
+# Deploy the same service to:
+# 1. Kubernetes
+# 2. AWS Lambda
+# 3. EC2 VM
+
+# Count the custom code required
+# GitHub Actions: ~300 lines of bash/Python
+# Harness: ~30 lines of YAML (native integrations)
+```
 
 ---
 

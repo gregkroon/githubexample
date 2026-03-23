@@ -155,9 +155,7 @@ Do you want your platform engineers:
 
 ## Where to Go Next
 
-**For Financial Decision Makers**: Read the [EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md) for a complete breakdown of the TCO and engineering hours saved.
-
-**For Technical Leaders**: Read [DEMO.md](docs/DEMO.md) for a hands-on technical proof of the state and verification gaps in native GHA.
+**For Technical Proof**: Read [DEMO.md](docs/DEMO.md) for hands-on demonstration of all 3 enterprise gaps with real code examples.
 
 ---
 

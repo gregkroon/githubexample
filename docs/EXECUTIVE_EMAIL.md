@@ -25,7 +25,6 @@ Should we continue scaling GitHub Actions for Continuous Deployment, or adopt a 
 
 **Bottom line**: Harness saves **$3.3M (37%)** and frees **4 engineers** to build developer productivity features instead of maintaining deployment infrastructure.
 
-**[See detailed TCO analysis with math & sources →](EXECUTIVE_SUMMARY.md)**
 
 ## What We Discovered
 
@@ -81,9 +80,8 @@ I've created a technical repository with:
 
 ## Key Documents
 
-1. **[EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md)** (10 min) - Complete TCO analysis with math, sources, sensitivity analysis
-2. **[README.md](../README.md)** (8 min) - 5 critical shortcomings that DEMO proves
-3. **[DEMO.md](DEMO.md)** (20 min) - Hands-on proof of each shortcoming
+1. **[README.md](../README.md)** (8 min) - The 3 critical enterprise gaps explained
+2. **[DEMO.md](DEMO.md)** (20 min) - Hands-on technical proof with real code examples
 
 ## My Recommendation
 
