@@ -89,41 +89,6 @@ GitOps (ArgoCD + GHA) is fantastic **if your enterprise is 100% modern Kubernete
 
 **The Harness Reality**: Harness provides **native, standardized deployment templates** for K8s, Helm, Serverless, Tanzu, traditional VMs, and databases. The integration maintenance burden is shifted to the vendor.
 
----
-
-## FAQ: The Engineer's Reality Check
-
-If you are a Platform Engineer or DevOps Architect reading this, let's address the elephant in the room:
-
-### "We use GitHub Reusable Workflows. We don't have configuration sprawl."
-
-**Reality**: Reusable workflows are a massive improvement for CI. But for CD, they only solve the **templating problem**, not the **capabilities problem**. Yes, you have one centralized `deploy.yml`. But inside that YAML, your team is still writing and maintaining the custom Datadog polling scripts, the complex rollback logic, and the manual approval API calls. You are **centralizing your custom glue code**, not eliminating it.
-
----
-
-### "ArgoCD + GitHub Actions is the CNCF industry standard. Why buy a monolith?"
-
-**Reality**: GitOps is the standard for **Kubernetes**. But the moment you need to orchestrate a complex release train (e.g., "Deploy K8s microservice A, update RDS database schema, then deploy Lambda B, wait for manual QA approval, then update the API Gateway"), **ArgoCD cannot coordinate that across different infrastructure types**. Harness handles multi-service pipeline orchestration natively.
-
----
-
-### "A git revert is instant. Harness can't make Kubernetes roll back faster."
-
-**Reality**: You are absolutely right—the **execution** of pulling an old container image is fast in both systems. But the delay in a custom CD stack isn't execution; it's the **human detection and decision time**.
-
-**Manual timeline**: Errors appear (2m) → PagerDuty fires (5m) → Engineer opens laptop & investigates (12m) → Decision to revert (18m) → git revert pushed & synced (20m).
-
-**Harness ML timeline**: Errors appear (2m) → ML detects anomaly vs baseline (3m) → Auto-rollback triggered and synced (5m).
-
-**At $100k/hour of downtime, saving 15 minutes per incident pays for the platform.**
-
----
-
-### "We don't want vendor lock-in with Harness."
-
-**Reality**: Lock-in is unavoidable; you just get to choose your flavor. **Option A** is locking into a commercial CD platform that abstracts the deployment logic and maintains the integrations for you. **Option B** is locking into your own **Internal Technical Debt**—relying on a web of custom bash, Python, and YAML scripts that tie your deployment logic directly to GitHub's specific runner environment and APIs. One of these options allows your engineers to build product features; the other forces them to maintain internal tooling.
-
----
 
 ## When to Use What
 
@@ -158,28 +123,7 @@ Do you want your platform engineers:
 ### Essential Reading
 
 1. **[DEMO.md](docs/DEMO.md)** - Technical proof of the 3 critical gaps with real code examples + live runnable workflow demonstrations
-2. **[EXECUTIVE_EMAIL.md](docs/EXECUTIVE_EMAIL.md)** - Email templates for leadership
 
-### Try It Yourself
-
-**Run the gap demonstrations:**
-```bash
-gh repo fork gregkroon/githubexperiment
-cd githubexperiment
-
-# Run Gap 1: The State & Visibility Gap
-gh workflow run "GAP 1 DEMO: The State & Visibility Gap (Stateless Runners)"
-
-# Run Gap 2: The Verification Gap
-gh workflow run "GAP 2 DEMO: The Verification Gap (Deploy and Pray)"
-
-# Trigger full CI/CD pipeline
-echo "// test" >> services/user-service/src/index.js
-git commit -am "test deployment" && git push
-gh run watch
-```
-
-See [DEMO.md](docs/DEMO.md) for complete guide.
 
 ---
 
