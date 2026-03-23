@@ -23,43 +23,50 @@ Each workflow completes in **2-5 minutes** and generates a detailed **step summa
 
 ## Gap Demonstration Workflows
 
-### 🔍 Gap 1: Cross-Environment Visibility
+### 🔍 Gap 1: The State & Visibility Gap (Stateless Runners)
 
 **File**: `.github/workflows/gap1-cross-env-visibility.yml`
 
 **What it demonstrates:**
+- GitHub Actions runners are stateless, ephemeral VMs with no deployment memory
 - Manual kubectl queries required across 4 environments (Dev, QA, Staging, Prod)
 - 15-20 minutes to compile deployment state for 50 services
 - Manual git commit SHA correlation
-- Why platform teams build Internal Developer Portals (Backstage)
+- Why platform teams build Internal Developer Portals (Backstage) to track state
 
-**The Question This Answers**:
+**The Core Problem**:
+> Stateless runners have no memory of what they deployed, what version is running in production, or how to roll it back.
+
+**The Question**:
 > "Show me what version of all 50 microservices is deployed in Dev, QA, Staging, and Production right now."
 
 **Run it:**
 ```bash
-gh workflow run "GAP 1 DEMO: Cross-Environment Visibility"
+gh workflow run "GAP 1 DEMO: The State & Visibility Gap (Stateless Runners)"
 ```
 
 **What you'll see:**
+- How stateless runners force manual state tracking
 - Manual kubectl commands for each environment
 - The correlation nightmare (200 image tags → git SHAs)
 - IDP build requirements (6-8 weeks + 4-6 hrs/week maintenance)
-- Harness alternative (5-second API query)
+- Harness alternative: Stateful control plane with 5-second API query
 
-**Maps to**: [DEMO.md - Gap 1](DEMO.md#gap-1-cross-environment-visibility-not-single-service-state)
+**Maps to**: [DEMO.md - Gap 1](DEMO.md#gap-1-the-state--visibility-gap-stateless-runners)
 
 ---
 
-### 🚨 Gap 2: Lambda Deployment Terraform Orchestration
+### 🚨 Gap 2: The Verification Gap ("Deploy and Pray")
 
 **File**: `.github/workflows/gap2-lambda-terraform-orchestration.yml`
 
 **What it demonstrates:**
+- A successful deployment just means the container started (not that the app is healthy)
+- Custom bash scripts to curl Datadog/New Relic APIs and guess if deployments are safe
+- Hard-coded thresholds (no baseline comparison)
 - Terraform is declarative state, not a release orchestrator
 - Custom bash orchestration wrapping Terraform applies
 - Manual CloudWatch polling for verification
-- Hard-coded thresholds (no baseline comparison)
 - 5-minute sleep wastes GitHub Actions runner time
 
 **The Workflow Shows**:
@@ -73,28 +80,29 @@ gh workflow run "GAP 1 DEMO: Cross-Environment Visibility"
 
 **Run it:**
 ```bash
-gh workflow run "GAP 2 DEMO: Lambda Deployment Terraform Orchestration"
+gh workflow run "GAP 2 DEMO: The Verification Gap (Deploy and Pray)"
 ```
 
 **What you'll see:**
 - The 5-step custom orchestration dance
-- Structural flaws (hard-coded thresholds, fragile API dependencies)
+- Structural flaws (hard-coded thresholds, fragile API dependencies, guessing if deployments are safe)
 - Why this pattern must be rebuilt for ECS, VMs, databases
-- Harness native Lambda canary (15 lines YAML, ML-driven verification)
+- Harness Continuous Verification: ML-driven baseline anomaly detection with auto-rollback
 
-**Maps to**: [DEMO.md - Gap 2](DEMO.md#gap-2-advanced-deployments--verification-beyond-kubernetes)
+**Maps to**: [DEMO.md - Gap 2](DEMO.md#gap-2-the-verification-gap-deploy-and-pray)
 
 ---
 
-### 🔧 Gap 3: Reusable Workflow Maintenance Burden
+### 🔧 Gap 3: The Heterogeneous Infrastructure Tax
 
 **File**: `.github/workflows/gap3-reusable-workflow-maintenance.yml`
 
 **What it demonstrates:**
-- Reusable Workflows centralize deployment logic (GOOD!)
-- But your platform team maintains them forever (EXPENSIVE!)
+- GitOps (ArgoCD + GHA) is fantastic if you're 100% Kubernetes (most enterprises aren't)
+- Typical enterprise: 40% K8s, 30% Serverless/ECS, 20% EC2/VMs, 10% databases
+- The GHA workaround: Reusable Workflows + Terraform modules + AWS CLI wrappers for non-K8s infrastructure
 - 7 maintenance events in last 6 months (AWS API changes, runtime deprecations)
-- 80-120 hours/year maintenance burden
+- 80-120 hours/year maintenance burden when AWS deprecates runtimes or changes APIs
 - The Vendor Lock-In Paradox
 
 **The Workflow Shows**:
@@ -113,12 +121,14 @@ cat .github/workflows/gap3-reusable-workflow-maintenance.yml
 ```
 
 **What you'll see:**
+- Every step annotated with maintenance burden from heterogeneous infrastructure
 - 6-month maintenance timeline (7 breaking AWS changes)
 - Emergency fixes (Friday 5pm Lambda outage: 6 hours on-call)
 - The buy-vs-build cost calculation ($150k/year maintenance vs vendor roadmap wait)
-- Why "control" is expensive
+- Why "control" is expensive when AWS deprecates runtimes
+- Harness native templates for K8s, Serverless, VMs - vendor maintains integrations
 
-**Maps to**: [DEMO.md - Gap 3](DEMO.md#gap-3-ongoing-maintenance-burden-of-reusable-workflows)
+**Maps to**: [DEMO.md - Gap 3](DEMO.md#gap-3-the-heterogeneous-infrastructure-tax)
 
 ---
 
@@ -163,9 +173,9 @@ cat .github/workflows/gap3-reusable-workflow-maintenance.yml
 
 | Workflow | Demonstrates | Documented In |
 |----------|--------------|---------------|
-| `gap1-cross-env-visibility.yml` | Manual kubectl queries, IDP building burden | [DEMO.md Gap 1](DEMO.md#gap-1-cross-environment-visibility-not-single-service-state) |
-| `gap2-lambda-terraform-orchestration.yml` | Terraform orchestration bash, hard-coded thresholds | [DEMO.md Gap 2](DEMO.md#gap-2-advanced-deployments--verification-beyond-kubernetes) |
-| `gap3-reusable-workflow-maintenance.yml` | Ongoing AWS API change maintenance | [DEMO.md Gap 3](DEMO.md#gap-3-ongoing-maintenance-burden-of-reusable-workflows) |
+| `gap1-cross-env-visibility.yml` | Stateless runners, manual kubectl queries, IDP building burden | [DEMO.md Gap 1](DEMO.md#gap-1-the-state--visibility-gap-stateless-runners) |
+| `gap2-lambda-terraform-orchestration.yml` | Deploy and pray, Terraform orchestration bash, hard-coded thresholds | [DEMO.md Gap 2](DEMO.md#gap-2-the-verification-gap-deploy-and-pray) |
+| `gap3-reusable-workflow-maintenance.yml` | Heterogeneous infrastructure, ongoing AWS API change maintenance | [DEMO.md Gap 3](DEMO.md#gap-3-the-heterogeneous-infrastructure-tax) |
 | `ci-*.yml` | GitHub Actions CI strengths | [README.md](../README.md) |
 | `cd-*.yml` | Kubernetes CD complexity | [README.md](../README.md) |
 
@@ -181,13 +191,13 @@ cd githubexperiment
 
 **Step 2: Trigger all gap demonstrations**
 ```bash
-# Gap 1: Cross-Environment Visibility
-gh workflow run "GAP 1 DEMO: Cross-Environment Visibility"
+# Gap 1: The State & Visibility Gap (Stateless Runners)
+gh workflow run "GAP 1 DEMO: The State & Visibility Gap (Stateless Runners)"
 
-# Gap 2: Lambda Terraform Orchestration
-gh workflow run "GAP 2 DEMO: Lambda Deployment Terraform Orchestration"
+# Gap 2: The Verification Gap (Deploy and Pray)
+gh workflow run "GAP 2 DEMO: The Verification Gap (Deploy and Pray)"
 
-# Gap 3 is best viewed by reading the file:
+# Gap 3: The Heterogeneous Infrastructure Tax (best viewed by reading the file)
 cat .github/workflows/gap3-reusable-workflow-maintenance.yml
 ```
 
@@ -225,11 +235,10 @@ gh run watch
 
 ### What Requires Custom Engineering ⚠️
 
-1. **Cross-Environment Visibility** - Build IDP or manual queries
-2. **Lambda/ECS/VM Verification** - Custom orchestration bash around Terraform
-3. **Ongoing Maintenance** - Platform team maintains deployment integrations forever
-4. **Stateless Runners** - No deployment history, must build custom tracker
-5. **Heterogeneous Infrastructure** - Argo Rollouts is K8s-only, rebuild for Lambda/ECS
+1. **State & Visibility** - Stateless runners have no deployment memory, must build IDP or manual queries
+2. **Verification** - Deployment success ≠ app health, custom bash scripts to guess if deployments are safe
+3. **Heterogeneous Infrastructure** - ArgoCD/Argo Rollouts is K8s-only, must maintain Terraform modules + AWS CLI wrappers for Lambda/ECS/VMs
+4. **Ongoing Maintenance** - Platform team maintains deployment integrations forever when AWS deprecates runtimes/APIs
 
 ---
 

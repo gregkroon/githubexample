@@ -1,12 +1,17 @@
-name: "GAP 3 DEMO: Reusable Workflow Maintenance Burden"
+name: "GAP 3 DEMO: The Heterogeneous Infrastructure Tax"
 
 # This is a Reusable Workflow that demonstrates DEMO.md Gap 3:
-# "Your platform team is now on the hook for maintaining that
-#  centralized deployment API forever."
+# GitOps (ArgoCD + GHA) is fantastic if your enterprise is 100% Kubernetes.
+# Very few enterprises are.
+#
+# THE REALITY: 40% K8s, 30% Serverless/ECS, 20% EC2/VMs, 10% databases
+#
+# THE WORKAROUND: GitHub Reusable Workflows + Terraform modules + AWS CLI wrappers
 #
 # This workflow looks clean and centralized - which is GOOD.
 # But the comments throughout show the ONGOING MAINTENANCE BURDEN
-# that your platform team must carry forever.
+# that your platform team must carry forever when AWS deprecates runtimes
+# or changes APIs.
 
 on:
   workflow_call:
@@ -37,13 +42,17 @@ jobs:
 
       - name: Gap 3 Overview
         run: |
-          echo "## 🔧 GAP 3: The Reusable Workflow Maintenance Tax" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔧 GAP 3: The Heterogeneous Infrastructure Tax" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**THE GOOD NEWS**: Smart teams centralize deployment logic into Reusable Workflows" >> $GITHUB_STEP_SUMMARY
+          echo "**THE REALITY**: GitOps (ArgoCD + GHA) is fantastic if your enterprise is 100% Kubernetes. Very few are." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**THE HIDDEN COST**: Your platform team now maintains this deployment API forever" >> $GITHUB_STEP_SUMMARY
+          echo "**THE MIX**: 40% K8s, 30% Serverless/ECS, 20% EC2/VMs, 10% databases" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**This workflow demonstrates the ongoing maintenance burden...**" >> $GITHUB_STEP_SUMMARY
+          echo "**THE GHA WORKAROUND**: Reusable Workflows + Terraform modules + AWS CLI wrappers for everything non-K8s" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**THE HIDDEN COST**: Your platform team now maintains these deployment integrations forever" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**This workflow demonstrates the ongoing maintenance burden when AWS deprecates runtimes or changes APIs...**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
       # MAINTENANCE BURDEN #1: AWS Runtime Deprecations
@@ -262,6 +271,8 @@ jobs:
           echo "- Coordinating rollouts" >> $GITHUB_STEP_SUMMARY
           echo "- Handling edge cases" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**The gap is that heterogeneous infrastructure (K8s + Lambda + ECS + VMs) requires maintaining custom deployment integrations forever.**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "**The strategic question: Do you want your platform engineers maintaining deployment integrations, or building developer productivity features?**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "See: [DEMO.md - Gap 3](../../docs/DEMO.md#gap-3-ongoing-maintenance-burden-of-reusable-workflows)" >> $GITHUB_STEP_SUMMARY
+          echo "See: [DEMO.md - Gap 3](../../docs/DEMO.md#gap-3-the-heterogeneous-infrastructure-tax)" >> $GITHUB_STEP_SUMMARY

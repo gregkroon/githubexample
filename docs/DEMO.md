@@ -27,9 +27,11 @@ gh run watch
 
 ---
 
-## Gap 1: Cross-Environment Visibility (Not Single-Service State)
+## Gap 1: The State & Visibility Gap (Stateless Runners)
 
 ### The Real Problem
+
+GitHub Actions runners are **stateless, ephemeral VMs**. They run a job and die. They have no memory of what they deployed, what version is currently running in production, or how to roll it back.
 
 **It's not "can you check what's deployed?"** — You absolutely can:
 ```bash
@@ -37,7 +39,7 @@ kubectl get deployment user-service -o yaml | grep image:
 # Output: user-service:abc123def
 ```
 
-**The real problem is cross-environment visibility at scale.**
+**The real problem is cross-environment visibility at scale** when runners have no deployment state.
 
 ### The Question That Breaks GitHub Actions
 
@@ -57,15 +59,17 @@ done
 # ❌ Takes 15-20 minutes to compile manually
 ```
 
-### What Enterprises Actually Build
+### The GHA Workaround
 
-To get cross-environment visibility, Platform Teams are forced to implement an Internal Developer Portal (IDP) like **Spotify Backstage**.
+Because GitHub Actions runners are stateless (no deployment memory), Platform Teams are forced to implement an **Internal Developer Portal (IDP)** like **Spotify Backstage** to track deployment state.
 
-But Backstage isn't free visibility. Your platform team is now on the hook for writing and maintaining the custom data-aggregation plugins to stitch together GitHub Actions logs, ArgoCD sync states, and AWS Lambda versions. **You are maintaining a complex data pipeline just to see what's in production.**
+But Backstage isn't free visibility. Your platform team is now on the hook for writing and maintaining custom data-aggregation plugins to stitch together GitHub Actions logs, ArgoCD sync states, and AWS Lambda versions. **You are maintaining a complex data pipeline just to answer "what's in production?"**
 
-### The Harness Approach
+### The Harness Reality
 
-**Built-in environment matrix dashboard out of the box.**
+Harness is **stateful**. It provides a single pane of glass showing exactly what artifact version is running in every environment across K8s, Serverless, and legacy VMs.
+
+**Built-in environment matrix dashboard out of the box:**
 
 ```bash
 # Single API query
@@ -87,15 +91,19 @@ curl https://app.harness.io/api/services/matrix
 
 ---
 
-## Gap 2: Advanced Deployments & Verification Beyond Kubernetes
+## Gap 2: The Verification Gap ("Deploy and Pray")
 
-### The Real Problem: You Are Not 100% Kubernetes
+### The Real Problem
 
-Modern enterprises run diverse infrastructure. While Argo Rollouts handles Kubernetes beautifully, 30-50% of your footprint consists of **AWS Lambdas, ECS Containers, and legacy EC2 VMs.**
+A successful deployment just means **the container started**. It doesn't mean **the application is healthy**.
 
-There is no "Argo Rollouts for Lambda." GitHub Actions is just a CI runner, meaning it has zero native understanding of cloud-specific deployment strategies.
+Modern enterprises run diverse infrastructure. While Argo Rollouts handles Kubernetes beautifully with automated verification, 30-50% of your footprint consists of **AWS Lambdas, ECS Containers, and legacy EC2 VMs.**
 
-### The GHA Reality: Terraform Needs an Orchestrator
+There is no "Argo Rollouts for Lambda." GitHub Actions is just a CI runner, meaning it has zero native understanding of cloud-specific deployment verification strategies.
+
+### The GHA Workaround: Custom Bash Scripts Around Terraform
+
+Your engineers write custom bash scripts inside GitHub Actions to curl your Datadog or New Relic APIs, wait 5 minutes, and **guess** if the error rate spike is related to the deployment. You are hard-coding thresholds and fighting false positives.
 
 Mature teams don't use raw bash scripts to deploy; they use Infrastructure as Code (Terraform or AWS CDK). But **Terraform is declarative state, not a release orchestrator.**
 
@@ -136,7 +144,9 @@ If you want a safe Canary rollout for an AWS Lambda (Deploy 10% → Wait 5 mins 
 - **Hard-coded thresholds:** 5 errors might be normal during peak traffic, resulting in false-positive rollbacks.
 - **Highly Fragile:** This orchestration pattern must be rebuilt from scratch for ECS, for EC2, and for databases.
 
-### The Harness Approach: Out-of-the-Box for All Infrastructure
+### The Harness Reality: Continuous Verification
+
+**Continuous Verification**: Harness natively connects to your observability tools. It uses **Machine Learning** to analyze logs and metrics during a canary or blue/green rollout. If it detects a **baseline anomaly**, it automatically halts the pipeline and initiates a safe rollback procedure.
 
 Harness treats K8s, Serverless, and VMs as first-class citizens. You get Canary, Blue/Green, and ML-driven Verification natively across **all** of them, orchestrating your IaC without writing a single line of bash.
 
@@ -168,17 +178,25 @@ stages:
 
 ---
 
-## Gap 3: Ongoing Maintenance Burden of Reusable Workflows
+## Gap 3: The Heterogeneous Infrastructure Tax
 
 ### The Real Problem
 
-Smart teams use **GitHub Reusable Workflows** to centralize deployment logic.
+GitOps (ArgoCD + GHA) is fantastic **if your enterprise is 100% modern Kubernetes**. Very few enterprises are.
 
-**The real problem is: Your platform team is now on the hook for maintaining that centralized deployment API forever.**
+**The Reality**: A typical enterprise runs 40% Kubernetes, 30% Serverless/ECS, 20% EC2/VMs, and 10% managed databases.
 
-### The Maintenance Burden No One Talks About
+Smart teams use **GitHub Reusable Workflows** to centralize deployment logic across this heterogeneous infrastructure.
+
+**But your platform team is now on the hook for maintaining that centralized deployment API forever.**
+
+### The GHA Workaround: Reusable Workflows + Terraform Modules
+
+You have a clean ArgoCD setup for K8s, but you rely on a complex web of centralized **GitHub Reusable Workflows**, **Terraform modules**, and **AWS CLI wrappers** to deploy to everything else.
 
 Let's say you have a beautifully centralized Reusable Workflow for deploying to AWS Lambda. All 200 Lambda services call it.
+
+**Every time AWS deprecates a runtime, or Helm updates a version, your team has to update and test internal tooling.**
 
 **Scenario: AWS deprecates the Python 3.8 runtime** (happens every 2 years)
 
@@ -199,6 +217,10 @@ Let's say you have a beautifully centralized Reusable Workflow for deploying to 
 When confronted with this, engineers often say: *"I don't want Harness because I don't want to wait for their product roadmap when AWS releases a new feature. Reusable Workflows give me control."*
 
 This is the ultimate Buy vs. Build trap. Yes, relying on a vendor means you move at the speed of their roadmap for niche cloud features. **But control is expensive.** Is getting day-zero access to a new AWS sub-feature worth $150,000/year in engineer maintenance toil?
+
+### The Harness Reality: Vendor-Maintained Integration Templates
+
+Harness provides **native, standardized deployment templates** for K8s, Helm, Serverless, Tanzu, traditional VMs, and databases. The integration maintenance burden is shifted to the vendor.
 
 **When AWS deprecates an API:**
 - ✅ Harness updates their native integrations on the backend.

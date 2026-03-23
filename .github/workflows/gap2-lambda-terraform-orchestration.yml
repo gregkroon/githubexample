@@ -1,10 +1,15 @@
-name: "GAP 2 DEMO: Lambda Deployment Terraform Orchestration"
+name: "GAP 2 DEMO: The Verification Gap (Deploy and Pray)"
 
 # This workflow demonstrates DEMO.md Gap 2:
-# "Terraform is declarative state, not a release orchestrator."
+# A successful deployment just means the container started.
+# It doesn't mean the application is healthy.
+#
+# THE PROBLEM: Your engineers write custom bash scripts to curl Datadog/New Relic
+# APIs, wait 5 minutes, and GUESS if the error rate spike is deployment-related.
+# You're hard-coding thresholds and fighting false positives.
 #
 # To do safe Canary rollouts for AWS Lambda:
-# - Deploy 10% → Wait 5 mins → Check Datadog → Deploy 100% OR Rollback
+# - Deploy 10% → Wait 5 mins → Check CloudWatch → Deploy 100% OR Rollback
 # - Terraform cannot do this natively
 # - You must write custom GitHub Actions orchestration bash around Terraform
 
@@ -30,9 +35,11 @@ jobs:
 
       - name: Gap 2 Overview
         run: |
-          echo "## 🚨 GAP 2: Terraform Needs an Orchestrator" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚨 GAP 2: The Verification Gap (Deploy and Pray)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**THE PROBLEM**: You want a safe Canary rollout for AWS Lambda" >> $GITHUB_STEP_SUMMARY
+          echo "**THE CORE PROBLEM**: A successful deployment just means the container started. It doesn't mean the application is healthy." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**THE CHALLENGE**: You want a safe Canary rollout for AWS Lambda with automated verification" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Desired Flow:**" >> $GITHUB_STEP_SUMMARY
           echo "1. Deploy new version to 10% traffic" >> $GITHUB_STEP_SUMMARY
@@ -184,9 +191,11 @@ jobs:
           echo "- You're paying GitHub Actions to sleep" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: The Harness Approach
+      - name: The Harness Reality
         run: |
-          echo "## The Harness Alternative" >> $GITHUB_STEP_SUMMARY
+          echo "## The Harness Reality: Continuous Verification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Harness natively connects to your observability tools. It uses **Machine Learning** to analyze logs and metrics during a canary or blue/green rollout. If it detects a **baseline anomaly**, it automatically halts the pipeline and initiates a safe rollback procedure." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Out-of-the-box Canary for ALL infrastructure (Lambda, ECS, K8s, VMs):**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -237,6 +246,6 @@ jobs:
           echo "| **GitHub Actions + Terraform** | 60-80 lines/service | AWS API changes break pipeline | No (hard-coded thresholds) | Lambda only (rewrite for ECS/VMs) |" >> $GITHUB_STEP_SUMMARY
           echo "| **Harness** | 15 lines YAML | Harness maintains integrations | Yes (ML-driven) | Lambda, ECS, K8s, VMs (same pattern) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**The gap isn't 'can you do verification?' — it's heterogeneous infrastructure support without custom orchestration.**" >> $GITHUB_STEP_SUMMARY
+          echo "**The gap is that deployment success ≠ application health. You must write custom bash scripts to guess if deployments are safe.**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "See: [DEMO.md - Gap 2](../../docs/DEMO.md#gap-2-advanced-deployments--verification-beyond-kubernetes)" >> $GITHUB_STEP_SUMMARY
+          echo "See: [DEMO.md - Gap 2](../../docs/DEMO.md#gap-2-the-verification-gap-deploy-and-pray)" >> $GITHUB_STEP_SUMMARY

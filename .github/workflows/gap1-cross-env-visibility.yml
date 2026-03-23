@@ -1,10 +1,12 @@
-name: "GAP 1 DEMO: Cross-Environment Visibility"
+name: "GAP 1 DEMO: The State & Visibility Gap (Stateless Runners)"
 
 # This workflow demonstrates DEMO.md Gap 1:
-# "Show me what version of all 50 microservices is deployed in
+# GitHub Actions runners are stateless, ephemeral VMs with no deployment memory.
+#
+# THE QUESTION: "Show me what version of all 50 microservices is deployed in
 #  Dev, QA, Staging, and Production right now."
 #
-# With GitHub Actions + ArgoCD, this requires manual kubectl queries
+# THE PROBLEM: With stateless runners, this requires manual kubectl queries
 # across every environment. No unified dashboard exists.
 
 on:
@@ -23,11 +25,13 @@ jobs:
     steps:
       - name: Setup
         run: |
-          echo "## 🔍 GAP 1: Cross-Environment Visibility" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 GAP 1: The State & Visibility Gap (Stateless Runners)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**THE CORE PROBLEM**: GitHub Actions runners are stateless, ephemeral VMs. They have no memory of what they deployed." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**THE QUESTION**: What version of all services is deployed in Dev, QA, Staging, and Production?" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**THE PROBLEM**: No unified dashboard. Must query each environment manually." >> $GITHUB_STEP_SUMMARY
+          echo "**THE IMPACT**: No unified dashboard. Must query each environment manually." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Simulate Dev Environment Query
@@ -104,11 +108,11 @@ jobs:
           echo "**Time required:** 15-20 minutes of manual kubectl + git log queries" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: What Enterprises Actually Build (IDP)
+      - name: The GHA Workaround (Build an IDP)
         run: |
-          echo "## What Platform Teams Are Forced to Build" >> $GITHUB_STEP_SUMMARY
+          echo "## The GHA Workaround: Build an Internal Developer Portal" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "To avoid this manual pain, teams build an **Internal Developer Portal (IDP)** like Spotify Backstage" >> $GITHUB_STEP_SUMMARY
+          echo "Because GitHub Actions runners are **stateless** (no deployment memory), teams build an **Internal Developer Portal (IDP)** like Spotify Backstage to track deployment state." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**IDP Requirements:**" >> $GITHUB_STEP_SUMMARY
           echo "- Database to store deployment history" >> $GITHUB_STEP_SUMMARY
@@ -122,9 +126,11 @@ jobs:
           echo "- Your platform team is now maintaining a **data pipeline**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: The Harness Approach
+      - name: The Harness Reality
         run: |
-          echo "## The Harness Alternative" >> $GITHUB_STEP_SUMMARY
+          echo "## The Harness Reality: Stateful Control Plane" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Harness is **stateful**. It provides a single pane of glass showing exactly what artifact version is running in every environment." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Single API Query:**" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
@@ -160,6 +166,6 @@ jobs:
           echo "| **Build IDP (Backstage)** | 5 sec | 4-6 hrs/week | Custom data pipeline to maintain |" >> $GITHUB_STEP_SUMMARY
           echo "| **Harness** | 5 sec | 0 hrs | Built-in, out of the box |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**The gap isn't 'can you check what's deployed?' — it's cross-environment visibility at scale.**" >> $GITHUB_STEP_SUMMARY
+          echo "**The gap is that stateless runners have no deployment memory. You must build a custom state tracker or IDP.**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "See: [DEMO.md - Gap 1](../../docs/DEMO.md#gap-1-cross-environment-visibility-not-single-service-state)" >> $GITHUB_STEP_SUMMARY
+          echo "See: [DEMO.md - Gap 1](../../docs/DEMO.md#gap-1-the-state--visibility-gap-stateless-runners)" >> $GITHUB_STEP_SUMMARY
