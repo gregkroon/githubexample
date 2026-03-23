@@ -105,34 +105,7 @@ You'll see **ALL 3 SERVICES** building and deploying:
 
 **This proves the operational burden scales linearly**: 3 services = 6 workflows × 1000 services = 6000 workflows to maintain.
 
----
 
-## What's MISSING (Obvious Gaps)
-
-After watching these workflows run, check out:
-
-**[📖 GitHub Gaps (REAL)](../../docs/GITHUB_GAPS_REAL.md)**
-
-This doc shows OBVIOUS shortcomings compared to Harness:
-
-1. ❌ **No deployment verification** - Smoke tests only, not metrics analysis
-2. ❌ **No automated rollback** - Manual process, 11+ minutes
-3. ❌ **No approval gates** - Auto-deploys to "production"
-4. ❌ **No deployment windows** - Could deploy Friday 6pm
-5. ❌ **No incident awareness** - Deploys during outages
-6. ❌ **No deployment dashboard** - Can't see what's deployed where
-7. ❌ **No multi-service orchestration** - One service at a time
-
-**At 3 services (what we have now): You can see the repetition**
-- 6 workflow files that are nearly identical
-- 3 services × 3 environments = 9 configurations to maintain
-
-**At 1000 services: These gaps become critical operational problems**
-- 2000 workflow files (CI + CD for each service)
-- 3000 environment configurations
-- Every gap multiplied by 1000
-
----
 
 ## Try It Yourself
 
@@ -175,32 +148,6 @@ After deployment completes:
 
 **Compare to Harness**: Click "Rollback" button → < 60 seconds
 
----
-
-## Cost: 100% FREE
-
-- ✅ GitHub Actions: 2,000-3,000 free minutes/month
-- ✅ GitHub Container Registry: 500MB free
-- ✅ Kind cluster: Runs in Actions (no cloud cost)
-- ✅ Security scanning: Free for public repos
-
-**~20 pushes/month = ~200 minutes used** (well within free tier)
-
----
-
-## The Point
-
-**These workflows prove:**
-
-✅ Everything WORKS (not theoretical)
-✅ GitHub CAN do CI/CD at enterprise scale
-❌ But critical capabilities are MISSING
-❌ Manual processes don't scale to 1000 repos
-❌ Operational burden is REAL
-
-**Watch the workflows run, then read the gaps documentation.**
-
-**The complexity and cost are obvious when you see it in action.**
 
 ---
 
