@@ -21,9 +21,11 @@ Should we continue scaling GitHub Actions for Continuous Deployment, or adopt a 
 | Approach | Cost | Team Size | Focus |
 |----------|------|-----------|-------|
 | **GitHub Actions CD** | $8.9M | 6 engineers | 80% maintaining glue code |
-| **Harness CD** | $5.6M | 2 engineers | 85% building features |
+| **Harness CD** | $5.6M | 2 engineers | 90% building features |
 
 **Bottom line**: Harness saves **$3.3M (37%)** and frees **4 engineers** to build developer productivity features instead of maintaining deployment infrastructure.
+
+**[See detailed TCO analysis with math & sources →](EXECUTIVE_SUMMARY.md)**
 
 ## What We Discovered
 
@@ -68,20 +70,20 @@ The real expense isn't tool licenses—it's **platform engineering time**:
 ## The Analysis
 
 I've created a technical repository with:
-- Complete cost breakdown (5-year TCO)
+- Complete TCO breakdown with math & citations
+- 5 critical shortcomings demonstrated with real examples
 - Architectural comparison (Frankenstein stack vs unified platform)
-- Real workflow examples showing the gaps
 - FAQ addressing common engineering objections
 
 **Repository**: [GitHub Link]
 
 **Time to review**: 15-20 minutes
 
-## Key Sections
+## Key Documents
 
-1. **README.md** (8 min) - Business case, TCO analysis, architectural reality
-2. **DEMO.md** (15 min) - Technical proof with hands-on examples
-3. **FAQ** (5 min) - Addresses engineer objections (reusable workflows, ArgoCD, etc.)
+1. **[EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md)** (10 min) - Complete TCO analysis with math, sources, sensitivity analysis
+2. **[README.md](../README.md)** (8 min) - 5 critical shortcomings that DEMO proves
+3. **[DEMO.md](DEMO.md)** (20 min) - Hands-on proof of each shortcoming
 
 ## My Recommendation
 
