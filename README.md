@@ -157,9 +157,8 @@ Do you want your platform engineers:
 
 ### Essential Reading
 
-1. **[DEMO.md](docs/DEMO.md)** - Technical proof of the 3 critical gaps with real code examples
-2. **[WORKFLOWS.md](docs/WORKFLOWS.md)** - Run the live workflow demonstrations in this repository
-3. **[EXECUTIVE_EMAIL.md](docs/EXECUTIVE_EMAIL.md)** - Email templates for leadership
+1. **[DEMO.md](docs/DEMO.md)** - Technical proof of the 3 critical gaps with real code examples + live runnable workflow demonstrations
+2. **[EXECUTIVE_EMAIL.md](docs/EXECUTIVE_EMAIL.md)** - Email templates for leadership
 
 ### Try It Yourself
 
@@ -168,11 +167,11 @@ Do you want your platform engineers:
 gh repo fork gregkroon/githubexperiment
 cd githubexperiment
 
-# Run Gap 1: Cross-Environment Visibility
-gh workflow run "GAP 1 DEMO: Cross-Environment Visibility"
+# Run Gap 1: The State & Visibility Gap
+gh workflow run "GAP 1 DEMO: The State & Visibility Gap (Stateless Runners)"
 
-# Run Gap 2: Lambda Terraform Orchestration
-gh workflow run "GAP 2 DEMO: Lambda Deployment Terraform Orchestration"
+# Run Gap 2: The Verification Gap
+gh workflow run "GAP 2 DEMO: The Verification Gap (Deploy and Pray)"
 
 # Trigger full CI/CD pipeline
 echo "// test" >> services/user-service/src/index.js
@@ -180,7 +179,7 @@ git commit -am "test deployment" && git push
 gh run watch
 ```
 
-See [WORKFLOWS.md](docs/WORKFLOWS.md) for complete guide.
+See [DEMO.md](docs/DEMO.md) for complete guide.
 
 ---
 

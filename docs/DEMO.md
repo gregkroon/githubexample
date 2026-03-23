@@ -235,6 +235,128 @@ Harness provides **native, standardized deployment templates** for K8s, Helm, Se
 
 ---
 
+## Try It Yourself: Run the Live Workflow Demonstrations
+
+This repository includes **live, runnable workflows** that demonstrate each of the 3 gaps above. Each workflow completes in **2-5 minutes** and generates detailed step summaries showing the exact pain points.
+
+### Quick Start
+
+**Fork and run:**
+```bash
+gh repo fork gregkroon/githubexperiment
+cd githubexperiment
+
+# Run Gap 1: The State & Visibility Gap
+gh workflow run "GAP 1 DEMO: The State & Visibility Gap (Stateless Runners)"
+
+# Run Gap 2: The Verification Gap
+gh workflow run "GAP 2 DEMO: The Verification Gap (Deploy and Pray)"
+
+# Gap 3 is best viewed by reading the annotated file:
+cat .github/workflows/gap3-reusable-workflow-maintenance.yml
+```
+
+---
+
+### 🔍 Gap 1 Workflow: The State & Visibility Gap
+
+**File**: `.github/workflows/gap1-cross-env-visibility.yml`
+
+**What it demonstrates:**
+- How stateless runners force manual state tracking
+- Manual kubectl queries across 4 environments (Dev, QA, Staging, Prod)
+- The correlation nightmare (200 image tags → manual git SHA correlation)
+- IDP build requirements (6-8 weeks + 4-6 hrs/week maintenance)
+- Harness alternative: Stateful control plane with 5-second API query
+
+**Run it:**
+```bash
+gh workflow run "GAP 1 DEMO: The State & Visibility Gap (Stateless Runners)"
+```
+
+**What you'll see in the step summary:**
+- Manual kubectl commands for each environment
+- 15-20 minute manual aggregation time
+- Custom IDP building requirements (Backstage)
+- Harness 5-second API query alternative
+
+---
+
+### 🚨 Gap 2 Workflow: The Verification Gap
+
+**File**: `.github/workflows/gap2-lambda-terraform-orchestration.yml`
+
+**What it demonstrates:**
+- The 5-step custom orchestration dance around Terraform
+- Custom bash scripts to curl CloudWatch APIs and guess if deployments are safe
+- Hard-coded thresholds with no baseline comparison
+- 5-minute sleep that wastes GitHub Actions runner time
+- Structural flaws (fragile API dependencies, must rebuild for ECS/VMs)
+- Harness Continuous Verification: ML-driven baseline anomaly detection
+
+**Run it:**
+```bash
+gh workflow run "GAP 2 DEMO: The Verification Gap (Deploy and Pray)"
+```
+
+**What you'll see in the step summary:**
+```yaml
+# Step 1: terraform apply -var="canary_weight=0.1"
+# Step 2: sleep 300  # Waste runner time
+# Step 3: Manual CloudWatch query (custom bash)
+# Step 4: Hard-coded threshold check
+# Step 5: terraform apply -var="canary_weight=1.0" OR rollback
+```
+
+---
+
+### 🔧 Gap 3 Workflow: The Heterogeneous Infrastructure Tax
+
+**File**: `.github/workflows/gap3-reusable-workflow-maintenance.yml`
+
+**What it demonstrates:**
+- Every step annotated with maintenance burden from heterogeneous infrastructure
+- 7 maintenance events in last 6 months (AWS API changes, runtime deprecations)
+- Emergency fixes (Friday 5pm Lambda outage: 6 hours on-call)
+- The buy-vs-build cost calculation ($150k/year maintenance vs vendor roadmap wait)
+- Harness vendor-maintained integration templates
+
+**View the annotated workflow:**
+```bash
+cat .github/workflows/gap3-reusable-workflow-maintenance.yml
+```
+
+**Key annotations you'll see:**
+```yaml
+# ⚠️ MAINTENANCE: AWS deprecated Node 18 in Lambda
+# UPDATED: 2024-11-15 (2 weeks of platform team work)
+# NEXT UPDATE DUE: ~2026 when AWS deprecates Node 20
+```
+
+---
+
+### Full Demo Flow
+
+**Run a complete CI/CD pipeline:**
+```bash
+# Fork and clone
+gh repo fork gregkroon/githubexperiment
+cd githubexperiment
+
+# Trigger full CI/CD pipeline
+echo "// test" >> services/user-service/src/index.js
+git commit -am "test deployment" && git push
+gh run watch
+```
+
+**What you'll see:**
+1. ✅ CI workflow completes (build, scan, sign, SBOM)
+2. ✅ CD workflow starts (deploy to dev)
+3. ⏸️ Manual approval required for production
+4. ✅ Deploy to production (after approval)
+
+---
+
 ## The Honest Assessment
 
 **GitHub Actions + ArgoCD is excellent if:**
