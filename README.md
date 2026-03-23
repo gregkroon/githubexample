@@ -507,6 +507,7 @@ gh run watch
 | **README.md** | Why the Frankenstein architecture is expensive | 8 min |
 | **[DEMO.md](docs/DEMO.md)** | Hands-on proof of GitHub Actions CD gaps | 15 min |
 | **[GITHUB_WORKAROUNDS.md](docs/GITHUB_WORKAROUNDS.md)** | Exact code to build missing capabilities | 20 min |
+| **[EXECUTIVE_EMAIL.md](docs/EXECUTIVE_EMAIL.md)** | Email templates for CTOs/VPs + POC plan | 5 min |
 
 ---
 
