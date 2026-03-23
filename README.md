@@ -1,4 +1,4 @@
-# GitHub Actions vs Harness CD: The Frankenstein Architecture
+# GitHub Actions vs Harness CD: The Frankenstein Architecture Tax
 
 **The brutal truth about scaling GitHub Actions for enterprise Continuous Delivery**
 
@@ -6,331 +6,268 @@
 
 ## The Verdict
 
-GitHub Actions is excellent for CI. Using it for enterprise CD creates an expensive, fragmented Frankenstein architecture.
+GitHub Actions is the industry standard for **Continuous Integration (CI)**. But forcing a CI tool to handle enterprise **Continuous Delivery (CD)** creates an expensive, fragmented Frankenstein architecture of open-source tools and custom glue code.
 
-| What You're Choosing | GitHub Actions CD | Harness CD |
-|----------------------|-------------------|------------|
-| **Architecture** | GHA + Terraform + ArgoCD + Bash + Glue Code | Single Control Plane |
-| **5-Year Cost** | $8.9M | $5.6M |
-| **Platform Team** | 6 engineers (80% maintaining glue) | 2 engineers (10% configuring) |
-| **Incident Recovery** | 30-40 min manual coordination | < 2 min automatic rollback |
-| **Governance** | 3,000 workflow files (config drift) | 1 centralized policy |
+| Feature | GitHub Actions "CD" Stack | Harness CD |
+|---------|---------------------------|------------|
+| **Architecture** | GHA + Terraform + ArgoCD + Bash + Custom Scripts | Single Purpose-Built Control Plane |
+| **5-Year TCO** | $8.9M | $5.6M |
+| **Platform Team Focus** | 6 engineers (spending 60%+ time maintaining glue code) | 2 engineers (spending 10% on config, 90% on features) |
+| **Deployment State** | None (stateless ephemeral runners) | Persistent, queryable, and auditable |
+| **Verification** | Manual review or custom API polling scripts | Automated ML-driven anomaly detection |
+| **Governance** | Centralized templates full of custom bash | Native RBAC and OPA policy enforcement |
 
-**Result**: Harness saves **$3.3M (37%)** and frees **4 engineers** to build features.
+**Result**: Harness saves **$3.3M (37%)** and frees your most expensive platform engineers to build features instead of maintaining deployment scripts.
 
-**[See detailed financial analysis →](docs/EXECUTIVE_SUMMARY.md)**
+**[See detailed financial analysis with math & sources →](docs/EXECUTIVE_SUMMARY.md)**
 
 ---
 
-## The 5 Critical Shortcomings
+## The Core Problem: The Frankenstein Architecture
 
-These aren't theoretical gaps. **[DEMO.md](docs/DEMO.md)** shows you exactly how they fail in real deployments.
+When you choose GitHub Actions for CD at scale, you don't just use GitHub Actions. You build a fragmented ecosystem:
 
-### 1. Stateless Runners (No Deployment Memory)
+```
+┌─────────────────────────────────────────────────────────┐
+│  GitHub Actions (CI only)                               │
+│  ├─ Build, test, security scan ✅                       │
+│  └─ Deploy? ❌ Stateless, no native verification        │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+           "We need deployment capabilities"
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│  The Frankenstein Stack                                 │
+│  ├─ GitHub Actions (to trigger deployments)             │
+│  ├─ ArgoCD (for Kubernetes state)                       │
+│  ├─ Terraform (for infrastructure provisioning)         │
+│  ├─ Custom Python/Bash (for Lambda/ECS deployments)     │
+│  ├─ Custom API Polling Scripts (for health checks)      │
+│  ├─ Custom Slack Bots (for manual approval gates)       │
+│  └─ Custom State Tracker (to answer "what's in prod?")  │
+└─────────────────────────────────────────────────────────┐
 
-**The Problem**:
+= Your platform engineering team becomes a full-time
+  glue code maintenance team.
+```
+
+**[See it demonstrated in working examples →](docs/DEMO.md)**
+
+---
+
+## The 3 Critical Enterprise Gaps
+
+These aren't theoretical gaps. They are the exact reasons your platform team is constantly firefighting.
+
+### 1. The State & Visibility Gap (Stateless Runners)
+
+GitHub Actions runners are **stateless, ephemeral VMs**. They run a job and die. They have no memory of what they deployed, what version is currently running in production, or how to roll it back.
+
+**The GHA Workaround**: You implement ArgoCD for your Kubernetes workloads. But what about your AWS Lambdas, your EC2 instances, and your legacy databases? You have to build a **custom internal state-tracking service** or grep through 90 days of fragmented GitHub logs.
+
+**The Harness Reality**: Harness is **stateful**. It provides a single pane of glass showing exactly what artifact version is running in every environment across K8s, Serverless, and legacy VMs.
+
+**Real-world impact**:
+- **Question**: "What version of user-service is deployed in production right now?"
+- **GHA answer**: grep GitHub logs → check ArgoCD → SSH to prod → inspect manually (**10-15 minutes**)
+- **Harness answer**: Query dashboard API (**5 seconds**)
+
+**[See the state gap demonstrated →](docs/DEMO.md#problem-1-the-stateless-runner-problem)**
+
+---
+
+### 2. The Verification Gap ("Deploy and Pray")
+
+A successful deployment just means **the container started**. It doesn't mean **the application is healthy**.
+
+**The GHA Workaround**: Your engineers write custom bash scripts inside your GitHub Actions to curl your Datadog or New Relic APIs, wait 5 minutes, and **guess** if the error rate spike is related to the deployment.
+
+Example from a real GitHub Actions workflow:
 ```yaml
-# GitHub Actions workflow
-jobs:
-  deploy:
-    runs-on: ubuntu-latest  # ← Ephemeral VM
-    steps:
-      - run: kubectl apply -f k8s/deployment.yaml
-      # ✅ Deployment succeeds
-      # ❌ Runner destroyed immediately
-      # ❌ No record of what was deployed
-      # ❌ No rollback capability
+- name: Verify deployment
+  run: |
+    sleep 300  # Wait 5 minutes
+    ERROR_RATE=$(curl -H "DD-API-KEY: ${{ secrets.DATADOG }}" \
+      "https://api.datadoghq.com/api/v1/query?query=..." | jq '.series[0].pointlist[-1][1]')
+    if (( $(echo "$ERROR_RATE > 5" | bc -l) )); then
+      echo "Deployment failed verification"
+      exit 1
+    fi
 ```
 
-**What happens after**:
-- Runner VM is destroyed
-- No persistent state
-- Can't answer: "What version is in production?"
+**Problems**:
+- Hard-coded thresholds (5% error rate) - no baseline comparison
+- 5-minute sleep wastes CI minutes
+- False positives from unrelated traffic spikes
+- No automatic rollback - just fails the workflow
 
-**The Frankenstein solution**:
-- Add ArgoCD (Kubernetes state only)
-- Build custom state tracker service
-- Integrate with Datadog/New Relic for deployment markers
-- **You're maintaining 3 systems for basic "what's deployed where?" visibility**
+**The Harness Reality**: **Continuous Verification**. Harness natively connects to your observability tools. It uses **Machine Learning** to analyze logs and metrics during a canary or blue/green rollout. If it detects a **baseline anomaly**, it automatically halts the pipeline and initiates a safe rollback procedure.
 
-**[See it fail in DEMO →](docs/DEMO.md#problem-1-the-stateless-runner-problem)**
+**Real-world impact**:
+- **Scenario**: Deployment causes 10% error rate increase
+- **GHA**: Deploy completes, errors appear, PagerDuty fires, engineer investigates, manual rollback (**30-40 minutes**)
+- **Harness**: ML detects anomaly in 2 minutes, auto-rollback triggered (**< 6 minutes total**)
+- **Savings**: $2.3M per incident (at $5M/hour revenue rate)
+
+**[See verification gap demonstrated →](docs/DEMO.md#problem-2-the-rollback-coordination-nightmare)**
 
 ---
 
-### 2. No Coordinated Rollback (Multi-Service Chaos)
+### 3. The Heterogeneous Infrastructure Tax
 
-**The Problem**:
+GitOps (ArgoCD + GHA) is fantastic **if your enterprise is 100% modern Kubernetes**. Very few enterprises are.
 
-Real-world deployment: Database → API → Frontend
+**The Reality**:
+```
+Typical Enterprise Infrastructure (1,000 services):
+  ├─ 30% Kubernetes (ArgoCD works beautifully ✅)
+  ├─ 20% AWS Lambda (custom scripts ❌)
+  ├─ 18% ECS/Fargate (custom scripts ❌)
+  ├─ 15% EC2 VMs (custom scripts ❌)
+  ├─ 10% RDS databases (custom scripts ❌)
+  └─ 7% Legacy on-premise (custom scripts ❌)
+```
 
+**The GHA Workaround**: You have a clean ArgoCD setup for K8s, but you rely on **thousands of lines of custom AWS CLI scripts, Terraform wrappers, and shell scripts** to deploy to ECS, serverless, and on-prem VMs.
+
+**Code burden**:
+- Kubernetes: 100 lines × 300 services = 30,000 lines
+- Lambda: 100 lines × 200 services = 20,000 lines
+- ECS: 140 lines × 180 services = 25,200 lines
+- VMs: 200 lines × 150 services = 30,000 lines
+- Databases: 130 lines × 100 services = 13,000 lines
+- **Total: 118,000 lines of deployment code to maintain**
+
+**The Harness Reality**: Harness provides **native, standardized deployment templates** for K8s, Helm, Serverless, Tanzu, traditional VMs, and databases. **One platform, regardless of the underlying infrastructure.**
+
+Example Harness pipeline (same logic, all platforms):
 ```yaml
-# 3 separate workflows, no coordination
+stages:
+  - stage: Deploy to K8s
+    type: Deployment
+    spec:
+      service: user-service
+      infrastructure: kubernetes
+      strategy: Canary  # Native support
 
-# Workflow 1: database migration ✅ SUCCESS
-# Workflow 2: backend API ✅ SUCCESS
-# Workflow 3: frontend ❌ FAILS
+  - stage: Deploy Lambda
+    type: Deployment
+    spec:
+      service: user-service-lambda
+      infrastructure: aws-lambda
+      strategy: Canary  # Same pattern
 
-# Current state:
-# ✅ Database has new schema
-# ✅ API expects new schema
-# ❌ Frontend missing
-# 💥 Production broken
+  - stage: Deploy to VMs
+    type: Deployment
+    spec:
+      service: user-service-vm
+      infrastructure: ssh
+      strategy: Rolling  # Same pattern
 ```
 
-**Manual rollback**:
-1. Notice failure (5 min)
-2. Coordinate across 3 repos (10 min)
-3. Revert backend (6 min CI/CD)
-4. Revert database (risk data loss)
-5. Verify everything (5 min)
-6. **Total: 20-30 minutes**
+**Custom code required**: **0 lines**
 
-**Impact**: $2.5M revenue loss per incident *(at $5M/hour)*
-
-**[See it fail in DEMO →](docs/DEMO.md#problem-2-the-rollback-coordination-nightmare)**
-
----
-
-### 3. Configuration Sprawl (3,000 Workflow Files)
-
-**The Problem**:
-- 1,000 microservices
-- 3 environments each
-- **= 3,000 workflow files to govern**
-
-**Policy enforcement**:
-```yaml
-# You WANT this enforced everywhere:
-- Production requires manual approval
-- Block deployments: Fri 4pm - Mon 8am
-- Wait 1 hour in staging
-- Block if P1 incidents active
-
-# Reality:
-# ❌ Must implement in 3,000 separate files
-# ❌ Teams copy-paste different versions
-# ❌ Configuration drift over time
-# ❌ Compliance audits = 40-80 hours
-```
-
-**Harness**: 1 centralized policy file, automatic enforcement
-
-**[See it fail in DEMO →](docs/DEMO.md#problem-3-the-governance-nightmare)**
-
----
-
-### 4. Platform Team Burden (80% Firefighting)
-
-**Where the time goes**:
-
-| Activity | Hours/Week | What It Costs |
-|----------|------------|---------------|
-| Debug ArgoCD sync failures | 4 hrs | $120k/year |
-| Fix Terraform state drift | 4 hrs | $120k/year |
-| Coordinate multi-service rollbacks | 6 hrs | $180k/year |
-| Investigate "what's deployed where?" | 4 hrs | $120k/year |
-| Standardize across 1,000 repos | 5 hrs | $144k/year |
-| **TOTAL: Glue Code Maintenance** | **36 hrs/week** | **$960k/year** |
-| Feature development | 4 hrs/week | $240k/year |
-
-**6 engineers spending 80% time maintaining deployment infrastructure instead of building features.**
-
-**With Harness**: 2 engineers, 10% time on platform, 90% on features
-
-**[See it fail in DEMO →](docs/DEMO.md#problem-4-the-platform-team-burden)**
-
----
-
-### 5. Heterogeneous Infrastructure (Custom Scripts Everywhere)
-
-**Your actual infrastructure**:
-```
-1000 services:
-  ├─ 300 Kubernetes pods (30%)
-  ├─ 200 AWS Lambda (20%)
-  ├─ 180 ECS containers (18%)
-  ├─ 150 EC2 VMs (15%)
-  ├─ 100 RDS databases (10%)
-  └─ 50 on-premise VMs (5%)
-```
-
-**GitHub Actions approach**:
-- Custom kubectl scripts for K8s (~100 lines × 300 services)
-- Custom AWS CLI for Lambda (~100 lines × 200 services)
-- Custom bash for VMs (~200 lines × 150 services)
-- Custom Flyway for databases (~130 lines × 100 services)
-- **= 118,000 lines of deployment code to maintain**
-
-**Every platform change**:
-- Kubernetes upgrades kubectl → update 300 workflows
-- AWS deprecates runtime → update 200 workflows
-- Migration to new platform → rewrite workflows
-
-**Harness**: Native integrations for all platforms, 0 custom code
-
-**[See it fail in DEMO →](docs/DEMO.md#problem-5-the-heterogeneous-infrastructure-reality)**
-
----
-
-## The Frankenstein Architecture
-
-When you choose GitHub Actions for CD at scale, you don't just use GHA. You build:
-
-```
-┌─────────────────────────────────────────────────┐
-│  GitHub Actions (stateless runners)             │
-│  ├─ Build, test, scan ✅                        │
-│  └─ Deploy? ❌ No state, rollback, verification │
-└─────────────────────────────────────────────────┘
-                    ↓
-         "We need CD capabilities"
-                    ↓
-┌─────────────────────────────────────────────────┐
-│  The Frankenstein Stack                         │
-│  ├─ GitHub Actions (build + test)               │
-│  ├─ Terraform (infrastructure)                  │
-│  ├─ ArgoCD (Kubernetes deployments)             │
-│  ├─ Custom state tracker                        │
-│  ├─ Custom rollback coordinator                 │
-│  ├─ Custom health checks                        │
-│  ├─ Custom policy enforcer                      │
-│  └─ Custom multi-service orchestrator           │
-└─────────────────────────────────────────────────┘
-
-= 6 engineers maintaining glue code full-time
-```
-
-**This is what "GitHub Actions CD" actually means at enterprise scale.**
-
-**[See detailed financial analysis →](docs/EXECUTIVE_SUMMARY.md)**
+**[See heterogeneous infrastructure demonstrated →](docs/DEMO.md#problem-5-the-heterogeneous-infrastructure-reality)**
 
 ---
 
 ## FAQ: The Engineer's Reality Check
 
-### "We use GitHub Reusable Workflows. We don't maintain 3,000 separate files."
+If you are a Platform Engineer or DevOps Architect reading this, you probably have some objections. Let's address them directly.
 
-**Reality**: Reusable workflows solve **templating**, not **state**.
+### "We use GitHub Reusable Workflows. We don't have configuration sprawl."
 
-You're still writing custom verification scripts:
-```yaml
-- name: Verify deployment
-  run: |
-    # ❌ Still custom code, just centralized
-    ERROR_RATE=$(curl -H "DD-API-KEY: ${{ secrets.DD }}" ...)
-    if [ "$ERROR_RATE" -gt "5" ]; then exit 1; fi
-```
-
-Harness has ML-based verification built-in. You're centralizing custom code, not eliminating it.
+**Reality**: Reusable workflows are a massive improvement for CI. But for CD, they only solve the **templating problem**, not the **capabilities problem**. Yes, you have one centralized `deploy.yml`. But inside that YAML, you still have to write and maintain the custom Datadog polling scripts, the complex rollback logic, and the manual approval API calls. You are **centralizing your custom glue code**, not eliminating it.
 
 ---
 
-### "ArgoCD + GitHub Actions is the CNCF GitOps standard."
+### "ArgoCD + GitHub Actions is the CNCF industry standard. Why buy a monolith?"
 
-**Reality**: Perfect for **100% Kubernetes**. But you're not 100% Kubernetes.
-
-You have:
-- 30% Kubernetes (ArgoCD handles)
-- 70% Lambda + ECS + VMs + databases (custom scripts)
-
-**You're back to the Frankenstein architecture.**
+**Reality**: GitOps is the standard for **Kubernetes**. But the moment you need to orchestrate a complex release train (e.g., "Deploy K8s microservice A, update RDS database schema, then deploy Lambda B, wait for manual QA approval, then update the API Gateway"), **ArgoCD cannot coordinate that across different infrastructure types**. Harness handles complex, multi-service pipeline orchestration natively.
 
 ---
 
 ### "A git revert is instant. Harness can't make Kubernetes roll back faster."
 
-**Reality**: The 30-minute delay isn't **execution**, it's **human detection time**.
+**Reality**: The 30-minute delay isn't the **execution** of the rollback; it's the **human detection and decision time**.
 
-Manual process:
-1. Error appears (2 min)
-2. Alert fires (5 min)
-3. Engineer investigates (10 min)
-4. Engineer decides to rollback (3 min)
-5. git revert + CI/CD runs (15 min)
-6. **Total: 35 minutes**
+Manual rollback timeline:
+1. Deployment completes (0 min)
+2. Errors appear in logs (2 min)
+3. Error rate crosses threshold (5 min)
+4. PagerDuty alert fires (7 min)
+5. Engineer opens laptop (10 min)
+6. Engineer investigates logs (15 min)
+7. Engineer decides to rollback (20 min)
+8. `git revert HEAD && git push` (21 min)
+9. Full CI/CD runs again (build, test, scan, deploy) (35 min)
+10. **Total: 35 minutes**
 
-Harness ML:
-1. Error appears (2 min)
-2. ML detects anomaly (1 min)
-3. Auto-rollback (3 min)
-4. **Total: 6 minutes**
+Harness automatic rollback:
+1. Deployment completes (0 min)
+2. Errors appear in logs (2 min)
+3. Harness ML detects anomaly (3 min)
+4. Automatic rollback triggered (4 min)
+5. Rollback completes (6 min)
+6. **Total: 6 minutes**
 
-**Saves $2.3M per incident** (at $5M/hour revenue)
+**Saves 29 minutes = $2.4M per incident** (at $5M/hour revenue rate)
 
 ---
 
 ### "Harness Delegates are complex to manage."
 
-**Reality**: One-time setup, then auto-upgrade.
-
-Would you rather:
-- **Option A**: 2 weeks deploying Delegates via Helm (one-time)
-- **Option B**: 5 years debugging custom AWS parsing scripts
-
-Choose wisely.
+**Reality**: Deploying Harness Delegates requires an **initial architectural lift** (2 weeks of standard Terraform/Helm work). Once deployed, they **auto-upgrade** from Harness SaaS. Would you rather spend 2 weeks on standardized infrastructure, or spend the next 5 years debugging why a custom Python script failed to parse an AWS response token?
 
 ---
 
-### "We don't want vendor lock-in."
+### "We don't want vendor lock-in with Harness."
 
-**Reality**: You're already locked in.
+**Reality**: **You are already locked in**. If your platform relies on custom bash, Python, and YAML scripts tying your deployment logic to GitHub's specific runner environment and APIs, you are locked into your own **Internal Technical Debt**. Commercial CD platforms abstract the deployment logic away from the CI runner, making it **easier to swap out your infrastructure or CI tools** in the future.
 
-You've built:
-- Custom state tracker
-- Custom rollback coordinator
-- Custom health checks
-- 118,000 lines of deployment code
-
-**You're locked into your own technical debt.**
-
-Migration cost:
-- Off GitHub: Rewrite custom services + retrain team + migrate 3,000 workflows
-- Off Harness: Update pipeline YAML
-
-**Lock-in to vendor platform > lock-in to unmaintainable custom code**
+**Migration cost comparison**:
+- **Off GitHub Actions CD**: Rewrite custom state tracker + rollback coordinator + health checks + retrain team + migrate 3,000 workflows
+- **Off Harness**: Update pipeline YAML to new platform (standardized CD format)
 
 ---
 
 ## When to Use What
 
-### ✅ Use GitHub Actions for CI + CD If:
+### ✅ Use GitHub Actions (CI + GitOps CD) If:
 
-- **< 50 services** (Frankenstein hasn't metastasized)
-- **100% Kubernetes on single cluster** (ArgoCD works)
-- **< 5 rollbacks/year** (manual recovery tolerable)
-- **Platform team has unlimited capacity** (glue maintenance is free)
-- **No compliance requirements** (audits optional)
+- You have **< 50 microservices**.
+- Your infrastructure is nearly **100% Kubernetes** (ArgoCD handles this beautifully).
+- Your platform team has the **bandwidth to maintain internal deployment tooling**.
+- You do not have strict, heterogeneous compliance and audit requirements.
 
-**Risk**: First multi-cloud mandate = rebuild everything
+**Risk**: First multi-cloud mandate, database migration requirement, or compliance audit = rebuild everything.
 
 ---
 
 ### ✅ Use Harness CD If:
 
-- **200+ services** (Frankenstein becomes unmaintainable)
-- **Heterogeneous infrastructure** (K8s + VMs + Lambda + databases)
-- **Need < 2 min rollback** (revenue impact high)
-- **Limited platform capacity** (can't afford 6 people on glue)
-- **Compliance requirements** (SOC2, PCI-DSS, HIPAA)
-- **Multi-team organization** (centralized governance needed)
+- You manage **100+ services** across heterogeneous infrastructure (K8s, VMs, Serverless, DBs).
+- You require **automated, ML-driven deployment verification** and rollback orchestration.
+- You need centralized, strict governance (**OPA policies, RBAC, single-click audit trails**).
+- You want your expensive Platform Engineers **building developer portals and productivity tools**, not debugging deployment scripts.
 
-**Benefit**: $3.3M cheaper + 4 engineers freed
+**Benefit**: $3.3M saved + 4 engineers freed to build the future, not maintain the past.
 
 ---
 
 ## The Honest Conclusion
 
-**GitHub Actions is the best CI platform.** Use it for build, test, scan.
+**GitHub Actions is the best CI platform.** Keep using it for build, test, and security scanning.
 
-**GitHub Actions is not a CD platform.** Using it for enterprise CD forces you to build a Frankenstein architecture that costs MORE than a purpose-built platform.
+**GitHub Actions is not a CD platform.** Forcing it to handle enterprise deployment orchestration creates a Frankenstein architecture that costs **more than a purpose-built platform**.
 
-**The real cost**: 6 engineers spending 80% time maintaining deployment glue instead of building features.
+**The real cost isn't the tools.** It's the **6-person platform team spending 60% of their time maintaining deployment glue** instead of building developer productivity features.
 
 ### The Strategic Question
 
-Do you want your platform team:
+Do you want your platform engineers:
 - **Maintaining deployment glue code** (GitHub Actions CD)
-- **Building developer productivity features** (Harness CD)
+- **Building internal developer portals** (Harness CD)
 
 **One production outage pays for 1.5 years of Harness.**
 
@@ -338,19 +275,19 @@ Do you want your platform team:
 
 ## Live Proof
 
-This repository has working CI/CD pipelines. Fork it and watch them run:
+This repository has working GitHub Actions CI/CD pipelines. Fork it and experience the gaps firsthand:
 
 ```bash
 gh repo fork gregkroon/githubexperiment
 cd githubexperiment
-echo "test" >> README.md && git commit -am "trigger" && git push
+echo "test" >> README.md && git commit -am "trigger deploy" && git push
 gh run watch
 ```
 
-**Then experience the shortcomings**:
+**Then try**:
 1. ❌ Deploy broken code and try to rollback (you'll manually revert + redeploy)
-2. ❌ Check deployment history (you'll grep through logs)
-3. ❌ Coordinate multi-service deploy (you'll write custom scripts)
+2. ❌ Check deployment history (you'll grep through logs or check ArgoCD)
+3. ❌ Coordinate a multi-service deploy across K8s + Lambda + database (you'll write custom orchestration)
 
 **[See detailed technical walkthrough →](docs/DEMO.md)**
 
@@ -358,17 +295,12 @@ gh run watch
 
 ## Where to Go Next
 
-| Document | What It Shows | Time |
-|----------|---------------|------|
-| **[EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)** | Complete TCO analysis with math & sources | 10 min |
-| **[DEMO.md](docs/DEMO.md)** | Hands-on proof of all 5 shortcomings | 20 min |
-| **[EXECUTIVE_EMAIL.md](docs/EXECUTIVE_EMAIL.md)** | Email templates for CTOs/VPs + POC plan | 5 min |
-
-**For financial decision-makers**: Start with EXECUTIVE_SUMMARY.md
-
-**For technical leaders**: Start with DEMO.md
-
-**For sending to executives**: Use EXECUTIVE_EMAIL.md templates
+| Your Role | Start Here | Time |
+|-----------|------------|------|
+| **CFO, Finance VP** | [EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md) - Complete TCO with math & sources | 10 min |
+| **CTO, VP Engineering** | [README.md](README.md) (you are here) → [EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md) | 15 min |
+| **Platform Engineer** | [DEMO.md](docs/DEMO.md) - Hands-on proof of all gaps | 20 min |
+| **Sending to Execs** | [EXECUTIVE_EMAIL.md](docs/EXECUTIVE_EMAIL.md) - Ready-to-send templates | 5 min |
 
 ---
 
