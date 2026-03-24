@@ -122,7 +122,7 @@ Do you want your platform engineers:
 
 ### Essential Reading
 
-1. **[DEMO]([github/workflows/README.md))** - Technical proof of the 3 critical gaps with real code examples + live runnable workflow demonstrations
+1. **[DEMO]([.github/workflows/README.md)** - Technical proof of the 3 critical gaps with real code examples + live runnable workflow demonstrations
 
 
 ---
