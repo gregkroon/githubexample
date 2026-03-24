@@ -312,7 +312,7 @@ Go to your repository:
 Create the following environments:
 
 - `dev`
-- `production'
+- `production`
 
 ---
 
