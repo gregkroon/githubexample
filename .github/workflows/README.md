@@ -303,6 +303,29 @@ Everything you saw:
 
 # 🧪 Run the Demo Yourself
 
+# 🧱 Step 1 — Create Environments in GitHub
+
+Go to your repository:
+
+👉 `Settings` → `Environments`
+
+Create the following environments:
+
+- `dev`
+- `production'
+
+---
+
+# 🔐 Step 2 — Add Approval Gate to Production
+
+Click into the `prod` environment and configure:
+
+### Required reviewers
+- Add yourself 
+- This creates a **manual approval step**
+
+
+
 ## 1. Make a Change
 
 ```bash
