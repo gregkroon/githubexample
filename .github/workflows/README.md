@@ -1,406 +1,425 @@
-# Real CI/CD Demo on GitHub Actions
-## Three services. Real workflows. Real toil.
+# 🚀 Real CI/CD Demo — What It Actually Takes to Build This on GitHub
 
-This repository demonstrates a **working CI/CD implementation on GitHub Actions** for three services:
+## ALL 3 SERVICES ARE RUNNING. THIS IS NOT A TOY.
 
-- User Service (Node.js)
-- Payment Service (Go)
-- Notification Service (Python)
+This repository demonstrates a **working CI/CD implementation on GitHub Actions**:
 
-These pipelines are not mock examples. They run on **every push to `main`** and perform real build, security, signing, verification, deployment, and smoke testing steps.
+- 3 real services (Node, Go, Python)
+- Full supply chain security (SBOM, signing, verification)
+- Real deployments to Kubernetes
+- Real rollback process
 
----
+Every push to `main`:
 
-# What this demo is really showing
-
-This demo proves two things at the same time:
-
-1. **GitHub Actions can be made to deliver real CI/CD**
-2. **To make GitHub Actions behave like an enterprise delivery platform, you end up building and maintaining a lot of platform logic yourself**
-
-That second point is the real purpose of this repo.
-
-This is not a “GitHub Actions does nothing” argument.  
-It is a **build vs buy** argument.
-
-GitHub Actions gives you a flexible workflow engine.
-
-But once you need:
-
-- vulnerability scanning
-- SBOM generation
-- SBOM validation
-- image signing
-- attestation verification
-- policy-as-code checks
-- environment promotion
-- manual approvals
-- deployment orchestration
-- rollback controls
-
-…your platform team becomes responsible for stitching those capabilities together across YAML, shell scripts, third-party actions, CLIs, and repository-by-repository workflow wiring.
-
-That is the operational tax this demo is designed to expose.
+👉 builds  
+👉 scans  
+👉 signs  
+👉 verifies  
+👉 deploys  
 
 ---
 
-# Why this becomes platform-team toil
+# 🔍 What This Demo Is (and Is NOT)
 
-In this repo, the workflows do all of the following:
+This is **NOT**:
+> “GitHub Actions can’t do CI/CD”
 
-## CI responsibilities
-- test the application
-- build container images
-- push to GitHub Container Registry
-- run Trivy and Grype scans
-- generate an SBOM with Syft
-- validate SBOM content with custom `jq` logic
-- check for banned packages
-- check for license compliance
-- sign images with Cosign
-- attach signed SBOM attestations
-- verify signatures and attestations
-- validate Dockerfile and Kubernetes policy with Conftest / OPA
-
-## CD responsibilities
-- chain deployment from CI using `workflow_run`
-- create Kubernetes clusters with Kind
-- create namespaces
-- resolve image tag to immutable digest
-- verify SBOM attestations before deployment
-- create environment-specific ConfigMaps and Secrets
-- mutate manifests with the correct image reference
-- deploy to Kubernetes
-- wait for rollout
-- run smoke tests
-- gather logs on failure
-
-This works.
-
-But it also means the platform team owns:
-- the tooling integration
-- the glue code
-- the policy code
-- the rollout logic
-- the debugging
-- the lifecycle of all of it
-
-At small scale, this is manageable.
-
-At enterprise scale, this becomes a significant FTE burden.
+It clearly can.
 
 ---
 
-# The core GitHub Actions limitations this demo highlights
-
-## 1. GitHub Actions is a workflow engine, not a native delivery platform
-To securely promote an artifact, the workflows must:
-- build and push the image
-- capture the digest
-- pass that information between workflows
-- rediscover the artifact later
-- resolve tag to digest
-- verify Cosign attestations
-- decode and inspect signed payloads
-- enforce deployment gates in shell logic
-
-That is a lot of custom engineering to answer:
-**“Is this the exact signed artifact we approved for deployment?”**
-
-## 2. Governance is assembled, not centrally enforced
-Policy enforcement here is implemented through:
-- Conftest
-- Rego policies
-- bash scripts
-- `jq` parsing
-- workflow conditions
-- environment settings
-
-That means governance is spread across workflow files and scripts rather than expressed once in a central runtime policy model.
-
-## 3. Secure software supply chain requires specialist code
-SBOM generation is easy.
-
-SBOM enforcement is not.
-
-This repo shows the difference clearly:
-- generate SBOM
-- upload artifact
-- download artifact
-- parse package lists
-- inspect licenses
-- inspect banned packages
-- attach signed attestation
-- verify attestation in deployment
-
-That is all real work the platform team must build and maintain.
-
-## 4. Deployment orchestration is procedural
-Deployments here are implemented as scripts:
-- create cluster
-- create namespace
-- inject config
-- patch manifests
-- deploy
-- wait
-- port-forward
-- curl endpoints
-- handle failures manually
-
-That is functional, but not the same as having a deployment platform with first-class rollout, verification, promotion, and rollback primitives.
-
-## 5. Rollback is not first-class
-Rollback in GitHub Actions is typically another workflow and another process.
-
-In this demo, rollback is manual and slow:
-- trigger workflow manually
-- specify prior commit
-- create rollback commit
-- wait for CI to rerun
-- wait for CD to rerun
-
-This is very different from a platform with native rollback based on deployment history.
-
-## 6. Reusable workflows reduce duplication but do not remove repo sprawl
-Even with reusable workflows, every repo still needs:
-- workflow files
-- triggers
-- permissions
-- inputs
-- path filters
-- service-specific logic
-- version coordination
-
-You still have distributed pipeline surface area to manage.
+This **IS**:
+> A build vs buy demonstration of what it takes to turn GitHub into a **secure, governed delivery platform**
 
 ---
 
-# Build vs Buy: the real decision
+# ⚠️ Critical Observation
 
-## Build on GitHub Actions when:
-- you want a programmable automation engine
-- you have a strong platform team
-- you are comfortable building and maintaining delivery controls yourself
-- you accept repository-level workflow sprawl
-- you are willing to own the operational complexity long term
+> These workflow files MUST exist in every repository
 
-## Buy Harness when:
-- you want CI/CD capabilities as platform features instead of custom YAML and scripts
-- you want built-in deployment orchestration
-- you want native rollback
-- you want stronger runtime governance
-- you want policy enforcement without embedding it everywhere
-- you want to reduce platform-team toil and FTE drag
-- you want to move from “workflow automation” to “software delivery platform”
+Even with:
+- reusable workflows  
+- templates  
+- composite actions  
 
-## The practical business case
-The issue is not whether GitHub Actions can work.
+You still need:
 
-It can.
+- workflow entry points  
+- triggers  
+- permissions  
+- service-specific configuration  
 
-The issue is how much **platform engineering effort** is required to make it behave like a secure, governed, enterprise-grade delivery platform.
-
-That effort grows with every:
-- new service
-- new environment
-- new compliance rule
-- new security gate
-- new deployment pattern
-- new exception
-- new rollback requirement
-
-That is the build-vs-buy threshold.
+👉 This does NOT go away
 
 ---
 
-# What is in this repo
+# ✅ What’s Running (REAL Pipelines)
 
-## Real workflows that actually run
+## 🧱 User Service (Node.js)
 
-### User Service (Node.js)
+### CI (`ci-user-service.yml`)
+- Build Docker image → GHCR  
+- Trivy + Grype scans  
+- SBOM generation (Syft)  
+- SBOM validation (custom logic)  
+- Cosign signing + attestation  
+- Conftest policy validation  
 
-#### `ci-user-service.yml`
-Runs on push to `main`
-
-Performs:
-- Node.js test execution
-- Docker build and push to GHCR
-- vulnerability scanning with Trivy and Grype
-- SBOM generation with Syft
-- SBOM validation with custom logic
-- image signing with Cosign
-- policy validation with Conftest
-
-Typical runtime:
-- ~5–7 minutes
-
-#### `cd-user-service.yml`
-Runs after CI succeeds
-
-Performs:
-- Kind cluster creation
-- image digest resolution
-- SBOM attestation verification
-- environment config and secret creation
-- Kubernetes deployment
-- rollout verification
-- smoke tests
-
-Typical runtime:
-- ~3–4 minutes
+⏱ ~5–7 minutes  
 
 ---
 
-### Payment Service (Go)
+### CD (`cd-user-service.yml`)
+- Resolve tag → digest  
+- Verify signed SBOM before deploy  
+- Create cluster (Kind)  
+- Inject config + secrets  
+- Deploy to Kubernetes  
+- Wait for rollout  
+- Run smoke tests  
 
-#### `ci-payment-service.yml`
-Runs on push to `main`
-
-Performs:
-- Go test execution
-- Docker build and push to GHCR
-- vulnerability scanning
-- SBOM generation
-- signing
-- policy validation
-
-Typical runtime:
-- ~5–7 minutes
-
-#### `cd-payment-service.yml`
-Runs after CI succeeds
-
-Performs:
-- Kind cluster creation
-- deployment
-- smoke tests
-
-Typical runtime:
-- ~3–4 minutes
+⏱ ~3–4 minutes  
 
 ---
 
-### Notification Service (Python)
+## 💳 Payment Service (Go)
 
-#### `ci-notification-service.yml`
-Runs on push to `main`
+Same pattern:
+- test → build → scan → SBOM → sign → verify → deploy  
 
-Performs:
-- pytest execution
-- Docker build and push to GHCR
-- vulnerability scanning
-- SBOM generation
-- signing
-- policy validation
-
-Typical runtime:
-- ~5–7 minutes
-
-#### `cd-notification-service.yml`
-Runs after CI succeeds
-
-Performs:
-- Kind cluster creation
-- deployment
-- smoke tests
-
-Typical runtime:
-- ~3–4 minutes
+⏱ ~8–11 minutes  
 
 ---
 
-### Manual Rollback
+## 🔔 Notification Service (Python)
 
-#### `rollback-manual.yml`
-Manual trigger only
+Same pattern:
+- pytest → build → scan → SBOM → sign → verify → deploy  
 
-Demonstrates the rollback process in GitHub Actions:
-- identify previous commit
-- trigger rollback workflow
-- create rollback commit
-- rerun CI
-- rerun CD
-
-Typical runtime:
-- 11+ minutes total
-
-### Compare to Harness
-With Harness, rollback is a native deployment action and is typically measured in seconds, not a full workflow rebuild cycle.
+⏱ ~8–11 minutes  
 
 ---
 
-# What makes this demo useful
+## 🔁 Manual Rollback
 
-This repo is intentionally designed to show the difference between:
+### `rollback-manual.yml`
 
-## “Can GitHub Actions do it?”
-Yes.
+Process:
+1. Manually trigger workflow  
+2. Provide commit SHA  
+3. Create rollback commit  
+4. Re-run CI  
+5. Re-run CD  
 
-## “What does it cost operationally to own it?”
-That is the real question.
-
-This demo shows the hidden cost in:
-- YAML complexity
-- shell scripting
-- security tooling integration
-- policy distribution
-- deployment orchestration
-- rollback design
-- repo-by-repo maintenance
+⏱ **11+ minutes**
 
 ---
 
-# What is real vs what is reference
+## ⚡ Compare
 
-| Location | Status | Purpose |
-|----------|--------|---------|
-| `/.github/workflows/` | ✅ Real | Actual workflows that run on push and deployment events |
-| `/platform/.github/workflows/` | 📚 Reference | Reusable workflow examples and patterns for scaling |
-
-The workflows under `/.github/workflows/` prove this implementation works.
-
-The `/platform/` content shows what a platform team would need to standardize and maintain at scale.
+| Capability | GitHub (This Demo) | Harness |
+|----------|-------------------|--------|
+| Deploy | ~11 minutes | Minutes |
+| Rollback | 11–30+ minutes | < 60 seconds |
+| Governance | Scripted | Built-in |
+| Security Enforcement | Workflow logic | Runtime enforced |
 
 ---
 
-# Check the workflows running
+# 🧠 The “Perfect Architecture” Argument (And Its Gap)
 
-Go to the Actions tab for this repository:
+A strong platform engineer will say:
 
-`https://github.com/gregkroon/githubexample/actions`
-
-You should see workflows such as:
-- CI - User Service
-- CD - User Service
-- CI - Payment Service
-- CD - Payment Service
-- CI - Notification Service
-- CD - Notification Service
-- Manual Rollback
-
-This is the important scaling point:
-
-**3 services = 6 active workflows**
-
-At scale:
-
-**1000 services = thousands of workflow definitions, triggers, policy integrations, and deployment variants to manage**
-
-Even with reuse, the platform team still owns the rollout and support burden.
+> “You shouldn’t use GitHub for CD.  
+> Use GitHub + Argo CD + Terraform (GitOps).”
 
 ---
 
-# Try it yourself
+## That is TRUE… but incomplete
 
-## 1. Fork the repo
-Fork this repository to your own GitHub account.
+That architecture looks like:
 
-## 2. Make a change
-Example:
+- GitHub Actions → CI  
+- Argo CD → Kubernetes CD  
+- Terraform → Infrastructure  
+- Sigstore → Signing  
+- OPA → Policy  
+- Monitoring → Verification  
 
-```bash
-echo "console.log('Test deployment');" >> services/user-service/src/index.js
+---
 
-git add .
-git commit -m "Test real CI/CD"
-git push origin main
+## ⚠️ Problem 1 — Toolchain Fragmentation
+
+You now operate:
+
+- GitHub  
+- Argo CD  
+- Terraform  
+- Kubernetes  
+- Sigstore stack  
+- Policy engines  
+
+👉 Multiple control planes  
+👉 Multiple failure modes  
+👉 Multiple teams  
+
+---
+
+## ⚠️ Problem 2 — Kubernetes-Only CD
+
+Argo CD works great for:
+
+✅ Kubernetes  
+
+---
+
+But most enterprises run:
+
+- EC2 / VMs  
+- AWS Lambda  
+- ECS / Fargate  
+- Azure App Services  
+- GCP Cloud Run  
+- Databases  
+- Legacy systems  
+
+---
+
+## ❗ Critical Gap
+
+> Argo solves Kubernetes CD only
+
+Everything else becomes:
+
+- custom scripts  
+- Terraform orchestration  
+- more GitHub workflows  
+
+👉 You now have **multiple CD patterns in the same organisation**
+
+---
+
+## ⚠️ Problem 3 — Ownership Explosion
+
+Who owns:
+
+- Argo rollout logic?  
+- Terraform orchestration?  
+- GitHub workflows?  
+- security enforcement?  
+- rollback strategy?  
+
+👉 Platform team becomes **integration layer for everything**
+
+---
+
+# 🔥 Where the Toil Actually Comes From (REAL EXAMPLES)
+
+## 1. Secure Artifact Promotion (You Built This Yourself)
+
+This repo implements:
+
+- digest resolution  
+- SBOM generation  
+- SBOM validation (jq parsing)  
+- Cosign signing  
+- Cosign verification  
+- attestation creation  
+- attestation verification  
+
+👉 This is not native  
+👉 This is platform code  
+
+---
+
+## 2. Governance Is Distributed
+
+Implemented via:
+
+- Conftest  
+- Rego  
+- workflow logic  
+- scripts  
+
+👉 Every repo depends on correct implementation  
+👉 Drift is inevitable  
+
+---
+
+## 3. Deployment Is Scripted
+
+CD pipeline is:
+
+- create cluster  
+- configure environment  
+- patch manifests  
+- deploy  
+- test  
+
+👉 This is scripting  
+👉 Not a deployment platform  
+
+---
+
+## 4. Rollback Is Not First-Class
+
+Rollback = commit + pipeline
+
+👉 Slow  
+👉 Non-deterministic  
+👉 Dependent on pipeline health  
+
+---
+
+## 5. Security Is Explicit… but Fragile
+
+Yes, it is visible.
+
+But also:
+
+- depends on workflow discipline  
+- can be bypassed  
+- can drift  
+
+---
+
+## ⚠️ The Real Risk
+
+> Not hidden security  
+> 👉 inconsistent security  
+
+---
+
+# 📈 The Scaling Problem
+
+## Today
+
+- 3 services  
+- 6 workflows  
+
+---
+
+## At Scale
+
+- 100 services → 200 workflows  
+- 1000 services → thousands  
+
+Each containing:
+
+- security logic  
+- deployment logic  
+- policy logic  
+
+---
+
+## Even With Reuse
+
+You still manage:
+
+- versions  
+- adoption  
+- drift  
+- exceptions  
+
+---
+
+# 🧾 What the Platform Team Owns
+
+To make this work:
+
+- workflow design  
+- security integration  
+- SBOM enforcement  
+- signing + verification  
+- deployment scripting  
+- rollback processes  
+- cross-tool debugging  
+
+---
+
+## Important Reframe
+
+This is not bad engineering.
+
+👉 This is **expected platform engineering**
+
+---
+
+## The Real Question
+
+> “Is this where you want your platform team spending time?”
+
+---
+
+# 🆚 Build vs Buy
+
+## Build (GitHub + Argo + Terraform)
+
+You get:
+
+- flexibility  
+- control  
+- transparency  
+
+You take on:
+
+- integration complexity  
+- multiple CD systems (K8s vs everything else)  
+- operational overhead  
+- long-term ownership  
+
+---
+
+## Buy (Harness)
+
+You get:
+
+- unified CD across:
+  - Kubernetes  
+  - VMs  
+  - ECS / Lambda  
+  - traditional workloads  
+- built-in rollback  
+- centralized governance  
+- runtime policy enforcement  
+- consistent deployment model  
+
+---
+
+## The Trade-Off
+
+| Option | Trade-Off |
+|------|----------|
+| Build | Control + Complexity |
+| Buy | Abstraction + Consistency |
+
+---
+
+# 💥 The Key Insight
+
+> GitHub + Argo gives you components  
+> Harness gives you a **unified delivery platform**
+
+---
+
+# 🎯 Bottom Line
+
+This demo proves:
+
+✅ You can build enterprise CI/CD  
+❌ You must assemble and operate it yourself  
+
+---
+
+> The more environments, services, and compliance you have  
+> 👉 the more you are building your own platform  
+
+---
+
+# 🧠 Final Thought
+
+> You absolutely *can* build this.
+
+The real question is:
+
+> **Do you want to own multiple CD systems and glue them together forever?**
