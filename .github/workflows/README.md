@@ -404,14 +404,3 @@ echo "console.log('Test deployment');" >> services/user-service/src/index.js
 git add .
 git commit -m "Test real CI/CD"
 git push origin main
-
-
-
-
-
-
-
-
-
-
-
