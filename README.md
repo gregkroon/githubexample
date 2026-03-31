@@ -191,7 +191,7 @@ That block is **~100 lines of bash** handling: image tag → digest resolution (
 
 This code is **duplicated in full** in the prod deploy job (lines 328–434). It will be duplicated again for payment-service and notification-service.
 
-**The workflow even counts it for you (line 424):**
+**The workflow even counts it for you (line 425):**
 ```
 echo "- CI: 50 lines (capture digest + sign + attach attestation)"
 echo "- CD Dev: 50 lines (resolve digest + verify attestation)"
