@@ -58,6 +58,8 @@ governance/metrics-collector/
 
 **3. Add a required reviewer to production** — click into the `production` environment → Required reviewers → add yourself. This creates the manual approval gate.
 
+> **Note:** "Prevent self-reviews" is not enabled in this setup. You can approve your own deployment — and you will. This is intentional. Gap 3 explains why that matters in production.
+
 **4. Trigger the pipeline** by pushing a change:
 
 ```bash
@@ -139,7 +141,7 @@ The OPA policies here are real. The Dockerfile rules, K8s Pod Security rules, an
 1. **`workflow_dispatch`** — allows triggering a deployment workflow directly, bypassing upstream pipeline dependencies like CI jobs or promotion gates. Environment required reviewers still fire for named environments — the gap is the upstream quality gates don't run.
 2. **Admin bypass** — by default, repository admins can force-push to main and bypass required status checks. GitHub rulesets allow this to be disabled, but it requires explicit configuration and is not the default for most installations.
 3. **`GITHUB_TOKEN` self-approval** — GitHub's environment protection rules include an optional "prevent self-reviews" setting that closes this gap when explicitly enabled. It is opt-in, not default. Without it, the workflow initiator can approve their own deployment if they are a listed reviewer.
-4. **Direct `kubectl apply`** — nothing in GitHub Actions stops a developer with cluster credentials from deploying directly, leaving no workflow audit trail
+4. **Direct `kubectl apply`** — nothing in GitHub Actions stops a developer with cluster credentials from deploying directly, leaving no workflow audit trail. The mitigation is removing direct cluster access from developers entirely — which requires separate RBAC enforcement at the cluster layer. GitHub Actions cannot enforce this; your cluster access governance must.
 5. **Workflow file changes** — a PR can modify the workflow file itself; the policy applies to the version running, not the version being merged
 
 **What you'd need to build:** A post-merge governance layer that enforces policies at deployment execution time independent of how the deployment was triggered. This is the difference between pre-merge checks (GitHub does this well) and deployment-time enforcement (requires an external execution engine with its own RBAC).
