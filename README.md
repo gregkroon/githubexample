@@ -83,16 +83,16 @@ For each gap below: here's where to look in the code, here's what you'll observe
 
 > "What version of user-service is running in production right now?"
 
-There is no API to call. There is no dashboard. The runner that deployed it is gone.
+GitHub's deployment history API shows the last workflow run per environment. The runner that deployed it is gone, but the record of what ran exists.
 
 **What actually exists:**
-- GitHub's environment page shows the last workflow run that targeted `production`
-- That run's SHA is visible — if you can navigate to the right environment page
+- GitHub's environment page and Deployments API show the last workflow run that targeted `production`
+- That run's SHA is visible — if you can navigate to the right environment page, per service
 
 **What's missing for real operations:**
-- No queryable "what's deployed where" across all services
-- No unified view spanning K8s, Lambda, ECS, and VMs
-- Answering the question at 2am requires: find the right environment page → trace the SHA → cross-reference ArgoCD for K8s state → manually check Lambda versions for serverless → `kubectl get pods` for anything else
+- No unified, queryable view across all services and all deployment targets — K8s, Lambda, ECS, VMs — in one place
+- The Deployments API is per-environment, per-repo. Answering "what's deployed across my estate right now" at 2am requires: navigate to each service's environment page → trace the SHA → cross-reference ArgoCD for K8s state → manually check Lambda versions for serverless → `kubectl get pods` for anything else
+- No record of deployments that happened outside the workflow (hotfixes, manual kubectl applies, Terraform runs)
 
 **What you'd need to build:** A custom deployment state service that captures artifact version + environment + timestamp on every CD run, exposes a query API, and stays in sync when deployments happen outside the workflow (hotfixes, manual kubectl applies, Terraform runs).
 
@@ -136,9 +136,9 @@ The OPA policies here are real. The Dockerfile rules, K8s Pod Security rules, an
 
 **The bypass surface — all documented by GitHub:**
 
-1. **`workflow_dispatch`** — any user with write access can trigger a deployment workflow manually, skipping any upstream gates
-2. **Admin bypass** — repository admins can force-push to main and bypass required status checks
-3. **`GITHUB_TOKEN` self-approval** — a workflow can approve its own deployment to a protected environment using the built-in token; GitHub accepted and paid out a bug bounty on this mechanism
+1. **`workflow_dispatch`** — allows triggering a deployment workflow directly, bypassing upstream pipeline dependencies like CI jobs or promotion gates. Environment required reviewers still fire for named environments — the gap is the upstream quality gates don't run.
+2. **Admin bypass** — by default, repository admins can force-push to main and bypass required status checks. GitHub rulesets allow this to be disabled, but it requires explicit configuration and is not the default for most installations.
+3. **`GITHUB_TOKEN` self-approval** — GitHub's environment protection rules include an optional "prevent self-reviews" setting that closes this gap when explicitly enabled. It is opt-in, not default. Without it, the workflow initiator can approve their own deployment if they are a listed reviewer.
 4. **Direct `kubectl apply`** — nothing in GitHub Actions stops a developer with cluster credentials from deploying directly, leaving no workflow audit trail
 5. **Workflow file changes** — a PR can modify the workflow file itself; the policy applies to the version running, not the version being merged
 
@@ -159,7 +159,7 @@ on:
         required: true
 ```
 
-**The rollback process:**
+**The rollback process in this workflow:**
 1. You know something is wrong
 2. You find the last known-good commit SHA from git log
 3. You go to Actions → Run workflow → paste the SHA
@@ -167,6 +167,8 @@ on:
 5. CI triggers (~7 min) → CD triggers (~4 min) → approval gate → production deploy
 
 **Total time from "something is wrong" to "rollback complete": 11–15 minutes**, assuming you approve prod immediately and nothing in CI fails.
+
+A faster path exists: trigger the CD workflow directly against a known-good SHA, skipping CI entirely. That's 4–5 minutes. This workflow doesn't implement that path because skipping CI requires safeguards — access controls, attestation re-verification, audit trail — that add complexity this demo doesn't own. The faster path is real; so is the engineering required to make it safe.
 
 **What this workflow cannot roll back:**
 - Lambda function versions

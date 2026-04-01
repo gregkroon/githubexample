@@ -70,9 +70,9 @@ The common assumption: "We require PR review on the workflow file, so the govern
 
 **The bypass mechanisms that exist even with that protection:**
 
-1. `workflow_dispatch` — write-access users can trigger deployment workflows manually, bypassing upstream gates
-2. Admin repository access bypasses required status checks
-3. `GITHUB_TOKEN` self-approval — GitHub accepted and paid a bug bounty on this mechanism; a workflow can approve its own environment deployment
+1. `workflow_dispatch` — allows triggering a deployment workflow directly, bypassing upstream pipeline dependencies (CI gates, promotion gates). Environment required reviewers still fire for named environments; the upstream quality gates do not.
+2. Admin bypass — by default, repository admins can bypass required status checks. GitHub rulesets allow this to be disabled, but it requires explicit configuration and is not the default.
+3. `GITHUB_TOKEN` self-approval — GitHub's "prevent self-reviews" environment protection setting closes this gap when explicitly enabled. It is opt-in, not default. Without it, the workflow initiator can approve their own deployment if they are a listed reviewer.
 4. Direct infrastructure access (kubectl, AWS CLI) creates deployments with no workflow audit trail
 5. Workflow file modifications take effect at merge; the policy runs on the version executing, not the version under review
 
